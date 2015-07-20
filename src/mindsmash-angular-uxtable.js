@@ -1,7 +1,7 @@
 (function(angular) {
 	'use strict';
 	
-	angular.module('mindsmash.uxTable')
+	angular.module('mindsmash.uxTable', ['angularjs-dropdown-multiselect', 'ui.bootstrap.pagination'])
 	
 	/**
 	 * Provides the outer scope for the uxTable.
