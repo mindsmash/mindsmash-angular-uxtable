@@ -29,7 +29,7 @@ module.exports = function (grunt) {
                 expand: true,
                 cwd: 'src',
                 src: ['*.js'],
-                dest: 'build'
+                dest: 'dist'
             }
         },
         
