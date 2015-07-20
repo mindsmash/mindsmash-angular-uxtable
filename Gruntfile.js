@@ -1,28 +1,16 @@
 /*global module:false*/
 module.exports = function (grunt) {
-
+    
     grunt.initConfig({
 
-        // Metadata.
         pkg: grunt.file.readJSON('package.json'),
+        
         banner: '/*! \n * <%= pkg.title || pkg.name %> v<%= pkg.version %>\n' +
             ' * <%= pkg.homepage %>\n' +
             ' * Copyright (c) <%= grunt.template.today("yyyy") %> <%= pkg.author %>\n' +
             ' * License: <%= pkg.license %>\n' +
             ' */\n',
-
-        ngAnnotate: {
-            options: {
-                singleQuotes: true,
-            },
-            build: {
-                expand: true,
-                cwd: 'src',
-                src: ['*.js'],
-                dest: 'dist'
-            }
-        },
-
+        
         jshint: {
             jshintrc: '.jshintrc',
             gruntfile: {
@@ -32,17 +20,43 @@ module.exports = function (grunt) {
                 src: ['src/*.js']
             }
         },
+
+        ngAnnotate: {
+            options: {
+                singleQuotes: true,
+            },
+            build: {
+                expand: true,
+                cwd: 'src',
+                src: ['*.js'],
+                dest: 'build'
+            }
+        },
+        
+        htmlmin: {
+            build: {
+                expand: true,
+                cwd: 'src',
+                src: ['*.html'],
+                dest: 'build',
+                options: {
+                    removeComments: true,
+                    collapseWhitespace: true
+                }
+            }
+        },
+        
         ngtemplates: {
             options: {
                 module: 'mindsmash.uxTable',
             },
             build: {
-                cwd: 'src',
+                cwd: 'build',
                 src: '*.html',
                 dest: 'dist/mindsmash-angular-uxtable.tpls.js'
             }
         },
-        // Task configuration.
+        
         uglify: {
             options: {
                 banner: '<%= banner %>',
@@ -54,12 +68,13 @@ module.exports = function (grunt) {
             }
         }
     });
-
+    
+    grunt.loadNpmTasks('grunt-angular-templates');
+    grunt.loadNpmTasks('grunt-contrib-htmlmin');
+    grunt.loadNpmTasks('grunt-contrib-jshint');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-ng-annotate');
-    grunt.loadNpmTasks('grunt-contrib-jshint');
-    grunt.loadNpmTasks('grunt-angular-templates');
-
-    grunt.registerTask('default', ['jshint', 'ngAnnotate', 'ngtemplates', 'uglify']);
+    
+    grunt.registerTask('default', ['jshint', 'ngAnnotate', 'htmlmin', 'ngtemplates', 'uglify']);
     grunt.registerTask('build', ['default']);
 };
