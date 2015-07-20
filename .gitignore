@@ -1,0 +1,7 @@
+.*
+!/.gitignore
+
+/bower_components/
+/example/
+/node_modules/
+/test/

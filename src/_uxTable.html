@@ -1,0 +1,18 @@
+<table class="ux-table" ng-class="cfg.tableClass">
+	<thead>
+		<tr>
+			<th
+				ng-repeat="column in columns | filter : { show: true }"
+				ng-click="sortColumn(column.key)"
+				ng-class="{ 'sort': column.sort !== false, 'sort-asc': state.orderBy.key === column.key && state.orderBy.asc === true, 'sort-desc': state.orderBy.key=== column.key && state.orderBy.asc === false }">
+					<span ng-if="column.i18n">{{ column.i18n | translate }}</span>
+					<span ng-if="!column.i18n">{{ column.name }}</span>
+			</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr ng-repeat="row in content">
+			<td ng-repeat="column in columns | filter : { show: true }" ux-table-cell>{{ row[column.key] }}</td>
+		</tr>
+	</tbody>
+</table>
