@@ -76,7 +76,7 @@
             priority: 10,
             restrict: 'A',
             require: ['uxTable', '?^^uxTableScope'],
-            templateUrl: '/javascripts/commons/uxTable/_uxTable.html',
+            templateUrl: '_uxTable.html',
             controller: function($scope, $element) {
                 // ===== Messaging
                 var broadcast = function(name, args) {
@@ -333,7 +333,7 @@
             replace: true,
             restrict: 'A',
             require: '^uxTableScope',
-            templateUrl: '/javascripts/commons/uxTable/_uxTablePagination.html',
+            templateUrl: '_uxTablePagination.html',
             link: function($scope, elem, attr, ctrl) {
                 var attrCfg = attr.uxTablePagination;
                 var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
@@ -382,7 +382,7 @@
             replace: true,
             restrict: 'A',
             require: '^uxTableScope',
-            templateUrl: '/javascripts/commons/uxTable/_uxTablePaginationSize.html',
+            templateUrl: '_uxTablePaginationSize.html',
             link: {
                 pre: function($scope, elem, attr, ctrl) {
                     var attrCfg = attr.uxTablePaginationSize;
@@ -452,7 +452,7 @@
             replace: true,
             restrict: 'A',
             require: '^uxTableScope',
-            templateUrl: '/javascripts/commons/uxTable/_uxTableCounter.html',
+            templateUrl: '_uxTableCounter.html',
             link: function($scope, elem, attr, ctrl) {
                 var attrCfg = attr.uxTableCounter;
                 var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
@@ -495,7 +495,7 @@
             replace: true,
             restrict: 'A',
             require: '^uxTableScope',
-            templateUrl: '/javascripts/commons/uxTable/_uxTableToggle.html',
+            templateUrl: '_uxTableToggle.html',
             link: {
                 pre: function($scope, elem, attr, ctrl) {
                     var attrCfg = attr.uxTableToggle;
