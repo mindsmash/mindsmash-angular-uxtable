@@ -10,7 +10,7 @@ coming soon...
 #### via bower:
 
 ```
-$ bower install mindsmash-angular-quickactions --save
+$ bower install mindsmash-angular-uxtable --save
 ```
 
 *please use either the minified or unminified file in the `dist` directory*
