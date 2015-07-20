@@ -14,7 +14,7 @@
     "dependencies": {
         "angular-bootstrap": "0.13.0",
         "angularjs-dropdown-multiselect": "1.5.2",
-        "lodash": "3.10.0",
+        "lodash": "3.10.0"
     },
     "ignore": [
         "**/.*",
