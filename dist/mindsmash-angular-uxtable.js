@@ -37,6 +37,7 @@
      */
     .constant('uxTableConf', {
         tableClass: 'table table-striped',
+        rowClass: null,
         requestConverter: function(state) {
             var orderBy = state.orderBy;
             return _.pick({
@@ -182,7 +183,7 @@
                     }
                 };
                 
-                // ===== Table State TODO
+                // ===== Table State TODO: retrieve from config
                 $scope.state = {
                     page: 0,
                     pageSize: 10,
@@ -193,7 +194,12 @@
                 };
                 
                 // ===== Table Sorting
-                this.sortColumn = function(key, asc/*?*/) {
+                
+                this.getSorting = function() {
+                    return $scope.state.orderBy;
+                };
+                
+                this.setSorting = function(key, asc) {
                     var column = _.find($scope.columns, 'key', key);
                     if (column && column.sort) {
                         if (!$scope.state.orderBy || $scope.state.orderBy.key !== key) {
@@ -212,17 +218,34 @@
                 };
                 
                 // ===== Table Pagination
-                this.setPage = function(page, pageSize) {
-                    var changed = false;
+                
+                this.getPage = function() {
+                    return $scope.state.page;
+                };
+                
+                this.getPageSize = function() {
+                    return $scope.state.pageSize;
+                };
+                
+                this.setPage = function(page) {
+                    this.setPagination(page, null);
+                };
+                
+                this.setPageSize = function(pageSize) {
+                    this.setPagination(null, pageSize);
+                };
+                
+                this.setPagination = function(page, pageSize) {
+                    var reload = false;
                     if (angular.isNumber(page) && 0 <= page) {
                         $scope.state.page = page;
-                        changed = true;
+                        reload = true;
                     }
                     if (angular.isNumber(pageSize) && 0 < pageSize) {
                         $scope.state.pageSize = pageSize;
-                        changed = true;
+                        reload = true;
                     }
-                    if (changed) {
+                    if (reload) {
                         broadcast('uxTable.state', $scope.state);
                         this.reload();
                     }
@@ -274,7 +297,8 @@
                     var attrCfg = attr.uxTable;
                     var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
                     
-                    $scope.cfg = angular.extend(uxTableConf, evalCfg);
+                    ctrl.cfg = angular.extend(uxTableConf, evalCfg);
+                    $scope.cfg = ctrl.cfg;
                     
                     // ===== Initialization
                     ctrl[0].setColumns($scope.cfg.columns);
@@ -282,8 +306,8 @@
                     ctrl[0].reload();
                     
                     // ===== Sorting
-                    $scope.sortColumn = function(key) {
-                        ctrl[0].sortColumn(key);
+                    $scope.setSorting = function(key) {
+                        ctrl[0].setSorting(key);
                     };
                     
                     // ===== Bind API to $scope
@@ -304,9 +328,6 @@
             require: '^uxTable',
             link: function($scope, elem, attr, ctrl) {
                 var template = $scope.column.template;
-                
-//                console.log($scope);
-                
                 if (angular.isString(template)) {
                     elem.html($compile(template)($scope));
                 }
@@ -354,7 +375,7 @@
                     itemsPerPage: 0,
                     ngChange: function() {
                         if (ctrl.$isInit) {
-                            ctrl.$tableCtrl.setPage($scope.cfg.ngModel - 1, null);
+                            ctrl.$tableCtrl.setPagination($scope.cfg.ngModel - 1, null);
                         }
                     }
                 });
@@ -415,7 +436,7 @@
                         events: {
                             onItemSelect: function(item) {
                                 if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.setPage(0, item.id);
+                                    ctrl.$tableCtrl.setPagination(0, item.id);
                                 }
                             }
                         },

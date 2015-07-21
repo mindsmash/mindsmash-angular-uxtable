@@ -10,7 +10,7 @@
         return {
             priority: 100,
             restrict: 'A',
-            controller: function($scope) {
+            controller: ['$scope', function($scope) {
                 this.$isInit = false;
                 this.$tableCtrl = undefined;
                 this.$tableElem = undefined;
@@ -28,7 +28,7 @@
                 this.broadcast = function(name, args) {
                     $scope.$broadcast(name, args);
                 };
-            }
+            }]
         };
     })
     
@@ -37,6 +37,7 @@
      */
     .constant('uxTableConf', {
         tableClass: 'table table-striped',
+        rowClass: null,
         requestConverter: function(state) {
             var orderBy = state.orderBy;
             return _.pick({
@@ -70,14 +71,14 @@
     /**
      * The actual uxTable directive.
      */
-    .directive('uxTable', function($http, $q, $timeout, Util, uxTableConf) {
+    .directive('uxTable', ['$http', '$q', '$timeout', 'Util', 'uxTableConf', function($http, $q, $timeout, Util, uxTableConf) {
         return {
             scope: true,
             priority: 10,
             restrict: 'A',
             require: ['uxTable', '?^^uxTableScope'],
             templateUrl: '_uxTable.html',
-            controller: function($scope, $element) {
+            controller: ['$scope', '$element', function($scope, $element) {
                 // ===== Messaging
                 var broadcast = function(name, args) {
                     if ($scope.$ctrl && $scope.$ctrl.$isInit) {
@@ -182,7 +183,7 @@
                     }
                 };
                 
-                // ===== Table State TODO
+                // ===== Table State TODO: retrieve from config
                 $scope.state = {
                     page: 0,
                     pageSize: 10,
@@ -193,7 +194,12 @@
                 };
                 
                 // ===== Table Sorting
-                this.sortColumn = function(key, asc/*?*/) {
+                
+                this.getSorting = function() {
+                    return $scope.state.orderBy;
+                };
+                
+                this.setSorting = function(key, asc) {
                     var column = _.find($scope.columns, 'key', key);
                     if (column && column.sort) {
                         if (!$scope.state.orderBy || $scope.state.orderBy.key !== key) {
@@ -212,17 +218,34 @@
                 };
                 
                 // ===== Table Pagination
-                this.setPage = function(page, pageSize) {
-                    var changed = false;
+                
+                this.getPage = function() {
+                    return $scope.state.page;
+                };
+                
+                this.getPageSize = function() {
+                    return $scope.state.pageSize;
+                };
+                
+                this.setPage = function(page) {
+                    this.setPagination(page, null);
+                };
+                
+                this.setPageSize = function(pageSize) {
+                    this.setPagination(null, pageSize);
+                };
+                
+                this.setPagination = function(page, pageSize) {
+                    var reload = false;
                     if (angular.isNumber(page) && 0 <= page) {
                         $scope.state.page = page;
-                        changed = true;
+                        reload = true;
                     }
                     if (angular.isNumber(pageSize) && 0 < pageSize) {
                         $scope.state.pageSize = pageSize;
-                        changed = true;
+                        reload = true;
                     }
-                    if (changed) {
+                    if (reload) {
                         broadcast('uxTable.state', $scope.state);
                         this.reload();
                     }
@@ -260,7 +283,7 @@
                         });
                     }
                 };
-            },
+            }],
             link: {
                 pre: function($scope, elem, attr, ctrl) {
                     
@@ -274,7 +297,8 @@
                     var attrCfg = attr.uxTable;
                     var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
                     
-                    $scope.cfg = angular.extend(uxTableConf, evalCfg);
+                    ctrl.cfg = angular.extend(uxTableConf, evalCfg);
+                    $scope.cfg = ctrl.cfg;
                     
                     // ===== Initialization
                     ctrl[0].setColumns($scope.cfg.columns);
@@ -282,8 +306,8 @@
                     ctrl[0].reload();
                     
                     // ===== Sorting
-                    $scope.sortColumn = function(key) {
-                        ctrl[0].sortColumn(key);
+                    $scope.setSorting = function(key) {
+                        ctrl[0].setSorting(key);
                     };
                     
                     // ===== Bind API to $scope
@@ -292,27 +316,24 @@
                 }
             }
         };
-    })
+    }])
     
     /**
      * A uxTable cell. For internal use only.
      */
-    .directive('uxTableCell', function($compile) {
+    .directive('uxTableCell', ['$compile', function($compile) {
         return {
             priority: 0,
             scope: false,
             require: '^uxTable',
             link: function($scope, elem, attr, ctrl) {
                 var template = $scope.column.template;
-                
-//                console.log($scope);
-                
                 if (angular.isString(template)) {
                     elem.html($compile(template)($scope));
                 }
             }
         };
-    })
+    }])
     
     /**
      * A uxTable pagination handler.
@@ -354,7 +375,7 @@
                     itemsPerPage: 0,
                     ngChange: function() {
                         if (ctrl.$isInit) {
-                            ctrl.$tableCtrl.setPage($scope.cfg.ngModel - 1, null);
+                            ctrl.$tableCtrl.setPagination($scope.cfg.ngModel - 1, null);
                         }
                     }
                 });
@@ -415,7 +436,7 @@
                         events: {
                             onItemSelect: function(item) {
                                 if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.setPage(0, item.id);
+                                    ctrl.$tableCtrl.setPagination(0, item.id);
                                 }
                             }
                         },
@@ -445,7 +466,7 @@
      * @param {String|false} [uxTableCounter.i18n=false] A $translate key to be used (uxTable state available in $scope).
      * @param {String} [uxTableCounter.template='{{ from }} – {{ to }} of {{ total }}'] A custom template (uxTable state available in $scope).
      */
-    .directive('uxTableCounter', function($compile) {
+    .directive('uxTableCounter', ['$compile', function($compile) {
         return {
             priority: 0,
             scope: true,
@@ -478,7 +499,7 @@
                 });
             }
         };
-    })
+    }])
     
     /**
      * A uxTable column chooser.
@@ -488,7 +509,7 @@
      * @param {String} [uxTableToggle.icon='zmdi zmdi-view-column'] The button's icon.
      * @param {Boolean} [uxTableToggle.caret=true] Show the button's dropdown caret.
      */
-    .directive('uxTableToggle', function($q, $timeout, $translate) {
+    .directive('uxTableToggle', ['$q', '$timeout', '$translate', function($q, $timeout, $translate) {
         return {
             priority: 0,
             scope: true,
@@ -594,5 +615,5 @@
                 }
             }
         };
-    });
+    }]);
 })(angular);
