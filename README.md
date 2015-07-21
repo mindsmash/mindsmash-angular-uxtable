@@ -3,15 +3,17 @@ Yet another data table for AngularJS.
 
 ### Features
 
-coming soon...
+* Sorting (no *multisort*)
+* Pagination
+* ...
 
 ### 1. Installation:
 
 #### 1.1 via bower:
 
-`
+```
 $ bower install mindsmash-angular-uxtable --save
-`
+```
 
 *please use either the minified or unminified file in the `dist` directory*
 
