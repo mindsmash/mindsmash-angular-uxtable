@@ -5,9 +5,9 @@ Yet another data table for AngularJS.
 
 coming soon...
 
-### Installation:
+### 1. Installation:
 
-#### via bower:
+#### 1.1 via bower:
 
 ```
 $ bower install mindsmash-angular-uxtable --save
@@ -15,15 +15,25 @@ $ bower install mindsmash-angular-uxtable --save
 
 *please use either the minified or unminified file in the `dist` directory*
 
-### Usage:
+coming soon...
+
+### 2. Configuration
 
 coming soon...
 
-### Configuration
+### 3. API
 
-coming soon...
+#### 3.1 Pagination
 
-### API
+* ```getPage``` - Returns the current page.
+* ```getPageSize``` - Returns the current page size.
+* ```setPage(page)``` - Sets the current page to *page*. This is a shorthand for ```setPagination(page, null)```.
+  * ```{Number} page```: The new page.
+* ```setPageSize(pageSize)``` - Sets the current page to *pageSize*. This is a shorthand for ```setPagination(null, pageSize)```.
+  * ```{Number} pageSize```: The new page size.
+* ```setPagination(page, pageSize)``` - Sets the current *page* and / or *pageSize*.
+  * ```{Number} [page]```: The new page.
+  * ```{Number} [pageSize]```: The new page size.
 
 coming soon...
 
