@@ -11,8 +11,8 @@
         </tr>
     </thead>
     <tbody>
-        <tr ng-repeat="row in content">
-            <td ng-repeat="column in columns | filter : { show: true }" ux-table-cell>{{ row[column.key] }}</td>
+        <tr ng-repeat="row in content" ng-init="$rowIndex = state.page * state.pageSize + $index + 1; $rowClass = cfg.rowClick(row, idx);" ng-click="cfg.rowClick(row, $rowIndex, $event)" ng-class="$rowClass">
+            <td ng-repeat="column in columns | filter : { show: true }" ux-table-cell data-label="{{ column.i18n ? (column.i18n | translate) : column.name }}" data-empty="{{ !row[column.key] }}">{{ row[column.key] }}</td>
         </tr>
     </tbody>
 </table>

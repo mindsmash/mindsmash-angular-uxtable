@@ -21,7 +21,29 @@ coming soon...
 
 ### 2. Configuration
 
-coming soon...
+```
+{
+    tableClass: 'table table-striped',
+    requestConverter: function(state) {
+        // The result of the evaluation must be a plain object containing the
+        // current request parameters. These are _page, _pageSize and _orderBy.
+    },
+    responseConverter: function(data) {
+        // The result of the evaluation must be an object containing the new
+        // table content (JSON array) and the new table state (incl. count,
+        // countTotal, page, pageSize).
+    },
+    rowClass: function(rowData, rowIndex) {
+        // The result of the evaluation can be a string representing space
+        // delimited class names, an array, or a map of class names to boolean
+        // values. In the case of a map, the names of the properties whose
+        // values are truthy will be added as css classes to the element.
+    },
+    rowClick: function(rowData, rowIndex, $event) {
+        // Handle the row click event.
+    }
+}
+```
 
 ### 3. API
 

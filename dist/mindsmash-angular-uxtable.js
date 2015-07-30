@@ -37,7 +37,8 @@
      */
     .constant('uxTableConf', {
         tableClass: 'table table-striped',
-        rowClass: null,
+        rowClass: angular.noop,
+        rowClick: angular.noop,
         requestConverter: function(state) {
             var orderBy = state.orderBy;
             return _.pick({
@@ -79,6 +80,7 @@
             require: ['uxTable', '?^^uxTableScope'],
             templateUrl: '_uxTable.html',
             controller: ['$scope', '$element', function($scope, $element) {
+                
                 // ===== Messaging
                 var broadcast = function(name, args) {
                     if ($scope.$ctrl && $scope.$ctrl.$isInit) {
@@ -94,6 +96,16 @@
                     $scope.source = source;
                     broadcast('uxTable.source', $scope.columns);
                     return this;
+                };
+                
+                // ===== Table State TODO: retrieve from config
+                $scope.state = {
+                    page: 0,
+                    pageSize: 10,
+                    orderBy: {
+                        key: 'id',
+                        asc: true
+                    }
                 };
                 
                 // ===== Table Columns
@@ -180,16 +192,6 @@
                             column.show = show;
                             broadcast('uxTable.columns', $scope.columns);
                         }
-                    }
-                };
-                
-                // ===== Table State TODO: retrieve from config
-                $scope.state = {
-                    page: 0,
-                    pageSize: 10,
-                    orderBy: {
-                        key: 'id',
-                        asc: true
                     }
                 };
                 
