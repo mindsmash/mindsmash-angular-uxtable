@@ -66,6 +66,21 @@ coming soon...
   * `{Number} [page]`: The new page.
   * `{Number} [pageSize]`: The new page size.
 
+#### 3.3 Selection
+
+* `select()` - Select one or more table rows.
+  * `{String|Array|Object} items`: The items to be selected in the table. This can either be a single table row (or table row key) or a list of table rows (or table row keys). If no argument is present, all items *of the current page* will be selected.
+* `deselect()` - Deselect one or more table rows.
+  * `{String|Array|Object} items`: The items to be deselected in the table. This can either be a single table row (or table row key) or a list of table rows (or table row keys). If no argument is present, all items *of the current page* will be deselected.
+* `setSelection()` - Resets the current table selection.
+  * `{Array|Object} items`: The new table selection. This can either be a list of table rows (or table row keys).
+
+
+
+
+
+
+
 more coming soon...
 
 ## Contributors
