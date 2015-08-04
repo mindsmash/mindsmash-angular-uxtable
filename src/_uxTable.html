@@ -1,7 +1,7 @@
 <table class="ux-table" ng-class="cfg.tableClass">
     <thead>
         <tr>
-            <th>
+            <th class="ux-table-selection">
                 <input type="checkbox" ux-table-selection content="content" selection="state.selection" selection-key="cfg.selectionKey">
             </th>
             <th
@@ -15,7 +15,7 @@
     </thead>
     <tbody>
         <tr ng-repeat="row in content" ng-init="$rowIndex = state.page * state.pageSize + $index + 1; $rowClass = cfg.rowClick(row, idx);" ng-click="cfg.rowClick(row, $rowIndex, $event)" ng-class="$rowClass">
-            <td><input type="checkbox" checklist-model="state.selection" checklist-value="row[cfg.selectionKey]"></td>
+            <td class="ux-table-selection"><input type="checkbox" checklist-model="state.selection" checklist-value="row[cfg.selectionKey]"></td>
             <td ng-repeat="column in columns | filter : { show: true }" ux-table-cell data-label="{{ column.i18n ? (column.i18n | translate) : column.name }}" data-empty="{{ !row[column.key] }}">{{ row[column.key] }}</td>
         </tr>
     </tbody>

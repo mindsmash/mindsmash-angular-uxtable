@@ -152,7 +152,15 @@
                             $timeout(function() {
                                 var response = $scope.cfg.responseConverter(data);
                                 angular.extend($scope.state, response.state);
-                                broadcast('uxTable.stateChanged', $scope.state);
+                                broadcast('uxTable.paginationChanged', {
+                                    page: $scope.state.page,
+                                    pageSize: $scope.state.pageSize,
+                                    count: $scope.state.count,
+                                    countTotal: $scope.state.countTotal,
+                                });
+                                
+                                
+                                
                                 $scope.content = response.content;
                                 broadcast('uxTable.contentChanged', $scope.content);
                             });
@@ -173,7 +181,6 @@
                  * 
                  * @param {String} columnData.key The internally used column key.
                  * @param {String} columnData.name The column's header name.
-                 * @param {Boolean} [columnData.sticky=true] The column's visibility possibilities.
                  * @param {Boolean} [columnData.show=true] The column's visibility status.
                  * @param {Boolean} [columnData.sort=true] The column's sorting possibilities.
                  * @param {String} [columnData.template] A custom template ('column' and 'row' available in $scope).
@@ -255,7 +262,7 @@
                     for (var i = 0; i < $scope.columns.length; i++) {
                         var column = $scope.columns[i];
                         if (column.key === key) {
-                            if (!column.sticky && column.show !== show) {
+                            if (column.show !== show) {
                                 column.show = show;
                                 broadcast('uxTable.visibilityChanged', $scope.columns);
                             }
@@ -266,10 +273,10 @@
                 };
                 
                 this.toggleVisibility = function(key) {
-                    if (this.isVisible(key)) {
-                        setVisibility(key, true);
+                    if (this.getVisibility(key)) {
+                        this.setVisibility(key, false);
                     } else {
-                        setVisibility(key, false);
+                        this.setVisibility(key, true);
                     }
                 };
                 
@@ -339,10 +346,6 @@
                         reload = true;
                     }
                     if (reload) {
-                        broadcast('uxTable.paginationChanged', {
-                            page: $scope.state.page,
-                            pageSize: $scope.state.pageSize
-                        });
                         this.reload();
                     }
                 };
@@ -575,10 +578,10 @@
                     }
                 });
                 
-                $scope.$on('uxTable.state', function(event, state) {
-                    $scope.cfg.ngModel = state.page + 1;
-                    $scope.cfg.totalItems = state.countTotal;
-                    $scope.cfg.itemsPerPage = state.pageSize;
+                $scope.$on('uxTable.paginationChanged', function(event, pagination) {
+                    $scope.cfg.ngModel = pagination.page + 1;
+                    $scope.cfg.totalItems = pagination.countTotal;
+                    $scope.cfg.itemsPerPage = pagination.pageSize;
                     $scope.cfg.isInit = true;
                 });
             }
@@ -742,14 +745,14 @@
                         events: {
                             onItemSelect: function(item) {
                                 if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.toggleColumn(item.key, true);
+                                    ctrl.$tableCtrl.toggleVisibility(item.key, true);
                                 }
                             },
                             onItemDeselect: function(item) {
                                 if ($scope.ngModel.length === 0) {
                                     $scope.ngModel.push(item);
                                 } else if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.toggleColumn(item.key, false);
+                                    ctrl.$tableCtrl.toggleVisibility(item.key, false);
                                 }
                             }
                         },
@@ -757,8 +760,7 @@
                     });
                     
                     $scope.ngModel = [];
-                    $scope.$on('uxTable.columns', function(event, columns) {
-                        
+                    $scope.$on('uxTable.columnsChanged', function(event, columns) {
                         $scope.cfg.options = [];
                         
                         var deferred = $q.defer();

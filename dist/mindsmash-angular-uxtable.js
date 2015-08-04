@@ -58,7 +58,7 @@
                     page: data.page.number,
                     pageSize: data.page.size,
                 },
-                content: data.data // TODO
+                content: data
             };
             if (angular.isArray(data.sort) && data.sort.length > 0) {
                 result.state.orderBy = {
@@ -86,7 +86,7 @@
                 
                 $scope.state = {
                     page: 0,
-                    pageSize: 2,
+                    pageSize: 10,
                     orderBy: {
                         key: 'id', // TODO: should be the selection key maybe?
                         asc: true
