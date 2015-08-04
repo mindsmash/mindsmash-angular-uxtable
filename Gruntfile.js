@@ -66,6 +66,13 @@ module.exports = function (grunt) {
                 src: ['dist/mindsmash-angular-uxtable.js', 'dist/mindsmash-angular-uxtable.tpls.js'],
                 dest: 'dist/mindsmash-angular-uxtable.min.js'
             }
+        },
+        
+        watch: {
+            build: {
+                files: [ 'src/*.js', 'src/*.html' ],
+                tasks: [ 'build' ]
+            }
         }
     });
     
@@ -73,6 +80,7 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-contrib-htmlmin');
     grunt.loadNpmTasks('grunt-contrib-jshint');
     grunt.loadNpmTasks('grunt-contrib-uglify');
+    grunt.loadNpmTasks('grunt-contrib-watch');
     grunt.loadNpmTasks('grunt-ng-annotate');
     
     grunt.registerTask('default', ['jshint', 'ngAnnotate', 'htmlmin', 'ngtemplates', 'uglify']);

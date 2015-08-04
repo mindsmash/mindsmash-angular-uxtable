@@ -1,7 +1,7 @@
 (function(angular) {
     'use strict';
     
-    angular.module('mindsmash.uxTable', ['angularjs-dropdown-multiselect', 'ui.bootstrap.pagination'])
+    angular.module('mindsmash.uxTable', ['checklist-model', 'angularjs-dropdown-multiselect', 'ui.bootstrap.pagination'])
     
     /**
      * Provides the outer scope for the uxTable.
@@ -36,9 +36,10 @@
      * The uxTable default configuration.
      */
     .constant('uxTableConf', {
-        tableClass: 'table table-striped',
+        tableClass: 'table',
         rowClass: angular.noop,
         rowClick: angular.noop,
+        selectionKey: 'id',
         requestConverter: function(state) {
             var orderBy = state.orderBy;
             return _.pick({
@@ -57,7 +58,7 @@
                     page: data.page.number,
                     pageSize: data.page.size,
                 },
-                content: data
+                content: data.data // TODO
             };
             if (angular.isArray(data.sort) && data.sort.length > 0) {
                 result.state.orderBy = {
@@ -72,7 +73,7 @@
     /**
      * The actual uxTable directive.
      */
-    .directive('uxTable', ['$http', '$q', '$timeout', 'Util', 'uxTableConf', function($http, $q, $timeout, Util, uxTableConf) {
+    .directive('uxTable', ['$http', '$q', '$timeout', 'uxTableConf', function($http, $q, $timeout, uxTableConf) {
         return {
             scope: true,
             priority: 10,
@@ -81,47 +82,103 @@
             templateUrl: '_uxTable.html',
             controller: ['$scope', '$element', function($scope, $element) {
                 
-                // ===== Messaging
-                var broadcast = function(name, args) {
-                    if ($scope.$ctrl && $scope.$ctrl.$isInit) {
-                        $scope.$ctrl.broadcast(name, args);
-                    } else {
-                        $scope.$broadcast(name, args);
-                    }
-                };
-                
-                // ===== Data Source
-                $scope.source = null;
-                this.setSource = function(source) {
-                    $scope.source = source;
-                    broadcast('uxTable.source', $scope.columns);
-                    return this;
-                };
-                
                 // ===== Table State TODO: retrieve from config
+                
                 $scope.state = {
                     page: 0,
-                    pageSize: 10,
+                    pageSize: 2,
                     orderBy: {
-                        key: 'id',
+                        key: 'id', // TODO: should be the selection key maybe?
                         asc: true
                     }
                 };
                 
-                // ===== Table Columns
+                this.getConfig = function() {
+                    return $scope.cfg;
+                };
+                
+                // ===== Messaging
+                
+                var broadcast = function(name, args) {
+                    var delegate = $scope.$ctrl && $scope.$ctrl.$isInit;
+                    var delegateFn = delegate ? $scope.$ctrl.broadcast : $scope.$broadcast;
+                    delegateFn(name, args);
+                };
+                
+                // ===== Data Source
+                
+                var source = null;
+                
+                $scope.content = [];
+                
+                this.setSource = function(src) {
+                    if (angular.isFunction(src) || angular.isObject(src) || angular.isArray(src)) {
+                        source = src;
+                        broadcast('uxTable.sourceChanged', source);
+                    } else {
+                        throw 'Invalid source type: ' + (typeof src);
+                    }
+                };
+                
+                this.reload = function() {
+                    var promise = null;
+                    if (angular.isFunction(source)) {
+                        var fncParams = $scope.cfg.requestConverter($scope.state);
+                        promise = source(fncParams);
+                    } else if (angular.isArray(source)) {
+                        var start = $scope.state.page * $scope.state.pageSize;
+                        var data = source.slice(start, start + $scope.state.pageSize);
+                        var deferred = $q.defer();
+                        deferred.resolve({
+                            data: data,
+                            page: {
+                                numberOfElements: data.length,
+                                totalElements: source.length,
+                                number: $scope.state.page,
+                                size: $scope.state.pageSize
+                            }
+                        });
+                        promise = deferred.promise;
+                    } else if (angular.isObject(source)) {
+                        var reqParams = $scope.cfg.requestConverter($scope.state);
+                        if (source.method === 'GET') {
+                            promise = $http(angular.merge({ params: reqParams }, source));
+                        } else {
+                            promise = $http(angular.merge({ data: reqParams }, source));
+                        }
+                    }
+                    if (promise !== null) {
+                        promise.then(function(data) {
+                            $timeout(function() {
+                                var response = $scope.cfg.responseConverter(data);
+                                angular.extend($scope.state, response.state);
+                                broadcast('uxTable.stateChanged', $scope.state);
+                                $scope.content = response.content;
+                                broadcast('uxTable.contentChanged', $scope.content);
+                            });
+                        });
+                    } else {
+                        throw 'Unknown source type: ' + promise;
+                    }
+                };
+                
+                // ===== Columns
+                
                 $scope.columns = [];
                 
+                // TODO: verify column data here
                 /**
                  * Creates a new column object to be used in a uxTable.
                  * Note that the returned column is not added to the table.
                  * 
                  * @param {String} columnData.key The internally used column key.
                  * @param {String} columnData.name The column's header name.
+                 * @param {Boolean} [columnData.sticky=true] The column's visibility possibilities.
                  * @param {Boolean} [columnData.show=true] The column's visibility status.
                  * @param {Boolean} [columnData.sort=true] The column's sorting possibilities.
                  * @param {String} [columnData.template] A custom template ('column' and 'row' available in $scope).
                  */
-                this.newColumn = function(columnData) {
+                var buildColumn = function(columnData) {
                     return angular.extend({
                         show: true,
                         sort: true,
@@ -129,34 +186,21 @@
                 };
                 
                 /**
-                 * Sets the columns for the uxTable.
-                 * 
-                 * @param {Object[]} columnsData The column definitions.
-                 */
-                this.setColumns = function(columnsData) {
-                    if (angular.isArray(columnsData) && columnsData.length > 0) {
-                        $scope.columns = _.map(columnsData, function(columnData) {
-                            return this.newColumn(columnData);
-                        }, this);
-                        if(!_.some($scope.columns, 'show', true)) {
-                            $scope.columns[0].show = true;
-                        }
-                    }
-                    broadcast('uxTable.columns', $scope.columns);
-                    return this;
-                };
-                
-                /**
                  * Adds a new column to the uxTable.
                  * 
-                 * @param {Object} columnData The column definitions.
-                 * @param {Number} idx The index at which the column should be added.
+                 * @param {Object} columnData The column definition.
+                 * @param {Number} [idx] The index at which the column should be added.
                  */
                 this.addColumn = function(columnData, idx) {
+                    var column = buildColumn(columnData);
+                    for (var i = 0; i < $scope.columns.length; i++) {
+                        if ($scope.columns[i].key === column.key) {
+                            throw 'Column key already defined: ' + column.key;
+                        }
+                    }
                     idx = angular.isDefined(idx) ? idx : $scope.columns.length;
-                    $scope.columns.splice(idx, 0, this.newColumn(columnData));
-                    broadcast('uxTable.columns', $scope.columns);
-                    return this;
+                    $scope.columns.splice(idx, 0, column);
+                    broadcast('uxTable.columnsChanged', $scope.columns);
                 };
                 
                 /**
@@ -165,33 +209,67 @@
                  * @param {String} key The column key.
                  */
                 this.removeColumn = function(key) {
-                    if ($scope.columns.length > 1) {
-                        var idx = _.findIndex($scope.columns, 'key', key);
-                        $scope.columns.splice(idx, 1);
-                        if(!_.some($scope.columns, 'show', true)) {
-                            $scope.columns[0].show = true;
+                    for (var i = 0; i < $scope.columns.length; i++) {
+                        if ($scope.columns[i].key === key) {
+                            $scope.columns.splice(i, 1);
+                            broadcast('uxTable.columnsChanged', $scope.columns);
+                            return;
                         }
                     }
-                    broadcast('uxTable.columns', $scope.columns);
-                    return this;
+                    throw 'Unknown column key: ' + key;
                 };
                 
                 /**
-                 * Toggles a column's visibility status.
+                 * Sets the columns for the uxTable.
                  * 
-                 * @param {String} key The column key.
-                 * @param {Boolean} [show] Set the visibility to a specific value.
+                 * @param {Object[]} columnsData The column definitions.
                  */
-                this.toggleColumn = function(key, show) {
-                    var column = _.find($scope.columns, 'key', key);
-                    if (column) {
-                        show = angular.isDefined(show) ? show : !column.show;
-                        if(show || _.some($scope.columns, function(column) {
-                            return column.key !== key && column.show === true;
-                        })) {
-                            column.show = show;
-                            broadcast('uxTable.columns', $scope.columns);
+                this.setColumns = function(columnsData) {
+                    var keys = [];
+                    var columns = [];
+                    for (var i = 0; i < columnsData.length; i++) {
+                        var column = buildColumn(columnsData[i]);
+                        if (keys.indexOf(column.key) !== -1) {
+                            throw 'Column key already defined: ' + column.key;
                         }
+                        keys.push(column.key);
+                        columns.push(column);
+                    }
+                    $scope.columns = columns;
+                    broadcast('uxTable.columnsChanged', $scope.columns);
+                };
+                
+                // ===== Column Visibility
+                
+                this.getVisibility = function(key) {
+                    for (var i = 0; i < $scope.columns.length; i++) {
+                        var column = $scope.columns[i];
+                        if (column.key === key) {
+                            return column.show;
+                        }
+                    }
+                    throw 'Unknown column key: ' + key;
+                };
+                
+                this.setVisibility = function(key, show) {
+                    for (var i = 0; i < $scope.columns.length; i++) {
+                        var column = $scope.columns[i];
+                        if (column.key === key) {
+                            if (!column.sticky && column.show !== show) {
+                                column.show = show;
+                                broadcast('uxTable.visibilityChanged', $scope.columns);
+                            }
+                            return;
+                        }
+                    }
+                    throw 'Unknown column key: ' + key;
+                };
+                
+                this.toggleVisibility = function(key) {
+                    if (this.isVisible(key)) {
+                        setVisibility(key, true);
+                    } else {
+                        setVisibility(key, false);
                     }
                 };
                 
@@ -202,21 +280,27 @@
                 };
                 
                 this.setSorting = function(key, asc) {
-                    var column = _.find($scope.columns, 'key', key);
-                    if (column && column.sort) {
-                        if (!$scope.state.orderBy || $scope.state.orderBy.key !== key) {
-                            $scope.state.orderBy = {
-                                key: key,
-                                asc: asc !== false
-                            };
-                        } else if ($scope.state.orderBy.asc === true) {
-                            $scope.state.orderBy.asc = false;
-                        } else if ($scope.state.orderBy.asc === false) {
-                            delete $scope.state.orderBy;
+                    for (var i = 0; i < $scope.columns.length; i++) {
+                        var column = $scope.columns[i];
+                        if (column.key === key) {
+                            if (column.sort) {
+                                if (!$scope.state.orderBy || $scope.state.orderBy.key !== key) {
+                                    $scope.state.orderBy = {
+                                        key: key,
+                                        asc: asc !== false
+                                    };
+                                } else if ($scope.state.orderBy.asc === true) {
+                                    $scope.state.orderBy.asc = false;
+                                } else if ($scope.state.orderBy.asc === false) {
+                                    delete $scope.state.orderBy;
+                                }
+                                broadcast('uxTable.sortingChanged', $scope.state.orderBy);
+                                this.reload();
+                            }
+                            return;
                         }
-                        broadcast('uxTable.state', $scope.state);
-                        this.reload();
                     }
+                    throw 'Unknown column key: ' + key;
                 };
                 
                 // ===== Table Pagination
@@ -225,16 +309,23 @@
                     return $scope.state.page;
                 };
                 
-                this.getPageSize = function() {
-                    return $scope.state.pageSize;
-                };
-                
                 this.setPage = function(page) {
                     this.setPagination(page, null);
                 };
                 
+                this.getPageSize = function() {
+                    return $scope.state.pageSize;
+                };
+                
                 this.setPageSize = function(pageSize) {
                     this.setPagination(null, pageSize);
+                };
+                
+                this.getPagination = function() {
+                    return {
+                        page: $scope.state.page,
+                        pageSize: $scope.state.pageSize
+                    };
                 };
                 
                 this.setPagination = function(page, pageSize) {
@@ -248,42 +339,91 @@
                         reload = true;
                     }
                     if (reload) {
-                        broadcast('uxTable.state', $scope.state);
+                        broadcast('uxTable.paginationChanged', {
+                            page: $scope.state.page,
+                            pageSize: $scope.state.pageSize
+                        });
                         this.reload();
                     }
                 };
                 
-                // ===== Table Filter
-                // TODO
+                // ===== Table Selection
                 
-                // ===== Table Content
-                $scope.content = [];
-                this.reload = function() {
-                    var promise = null;
-                    if (angular.isFunction($scope.source)) {
-                        var params = $scope.cfg.requestConverter($scope.state);
-                        promise = $scope.source(params);
-                    } else if (angular.isObject($scope.source)) { // TODO: implement
-                        promise = $http($scope.source);
-                    } else if (angular.isArray($scope.source)) { // TODO: implement
-                        var start = $scope.state.page * $scope.state.size;
-                        var content = $scope.source.slice(start, start + $scope.state.size);
-                        var deferred = $q.defer();
-                        deferred.resolve(content);
-                        promise = deferred.promise;
+                $scope.state.selection = [];
+                $scope.$watch('state.selection', function(newVal, oldVal) {
+                    if (newVal !== oldVal) {
+                        broadcast('uxTable.selectionChanged', newVal);
                     }
-                    if (promise !== null) {
-                        promise.then(function(data) {
-                            $scope.cfg.fetch(data);
-                            $timeout(function() {
-                                var response = $scope.cfg.responseConverter(data);
-                                angular.extend($scope.state, response.state);
-                                broadcast('uxTable.state', $scope.state);
-                                $scope.content = response.content;
-                                broadcast('uxTable.content', $scope.content);
-                            });
-                        });
+                }, true);
+                
+                this.select = function(items) {
+                    if (angular.isUndefined(items)) { // select all
+                        $scope.state.selection = $scope.content.reduce(function(acc, item) {
+                            var key = item[$scope.cfg.selectionKey];
+                            if ($scope.state.selection.indexOf(key) === -1) {
+                                acc.push(key);
+                            }
+                            return acc;
+                        }, $scope.state.selection);
+                    } else if (angular.isArray(items)) { //select some
+                        $scope.state.selection = items.reduce(function(acc, item) {
+                            var key = angular.isObject(item) ? item[$scope.cfg.selectionKey] : item;
+                            if ($scope.state.selection.indexOf(key) === -1) {
+                                acc.push(key);
+                            }
+                            return acc;
+                        }, $scope.state.selection);
+                    } else { // select one
+                        var key = angular.isObject(items) ? items[$scope.cfg.selectionKey] : items;
+                        var idx = $scope.state.selection.indexOf(key);
+                        if (idx === -1) {
+                            $scope.state.selection.push(key);
+                        }
                     }
+                };
+                
+                this.deselect = function(items) {
+                    if (angular.isUndefined(items)) { // deselect all
+                        $scope.state.selection = $scope.content.reduce(function(acc, item) {
+                            var key = item[$scope.cfg.selectionKey];
+                            var idx = $scope.state.selection.indexOf(key);
+                            if (idx !== -1) {
+                                $scope.state.selection.splice(idx, 1);
+                            }
+                            return acc;
+                        }, $scope.state.selection);
+                    } else if (angular.isArray(items)) { // deselect some
+                        $scope.state.selection = items.reduce(function(acc, item) {
+                            var key = angular.isObject(item) ? item[$scope.cfg.selectionKey] : item;
+                            var idx = $scope.state.selection.indexOf(key);
+                            if (idx !== -1) {
+                                $scope.state.selection.splice(idx, 1);
+                            }
+                            return acc;
+                        }, $scope.state.selection);
+                    } else { // deselect one
+                        var key = angular.isObject(items) ? items[$scope.cfg.selectionKey] : items;
+                        var idx = $scope.state.selection.indexOf(key);
+                        if (idx !== -1) {
+                            $scope.state.selection.splice(idx, 1);
+                        }
+                    }
+                };
+                
+                this.getSelection = function() {
+                    return $scope.state.selection;
+                };
+                
+                this.setSelection = function(items) {
+                    var selection = [];
+                    for (var i = 0; i < items.length; i++) {
+                        var item = items[i];
+                        var key = angular.isObject(item) ? item[$scope.cfg.selectionKey] : item;
+                        if (selection.indexOf(key) === -1) {
+                            selection.push(key);
+                        }
+                    }
+                    $scope.state.selection = selection;
                 };
             }],
             link: {
@@ -298,8 +438,10 @@
                 post: function($scope, elem, attr, ctrl) {
                     var attrCfg = attr.uxTable;
                     var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
-                    
                     ctrl.cfg = angular.extend(uxTableConf, evalCfg);
+                    
+                    
+                    // ===== API Binding
                     $scope.cfg = ctrl.cfg;
                     
                     // ===== Initialization
@@ -307,13 +449,16 @@
                     ctrl[0].setSource($scope.cfg.source);
                     ctrl[0].reload();
                     
+                    
                     // ===== Sorting
                     $scope.setSorting = function(key) {
                         ctrl[0].setSorting(key);
                     };
                     
+                    // ===== Selection
+                    
                     // ===== Bind API to $scope
-                    var tableName = $scope.cfg.name || Util.uuid();
+                    var tableName = $scope.cfg.name; //TODO: || Util.uuid();
                     $scope.$parent[tableName] = ctrl[0];
                 }
             }
@@ -333,6 +478,54 @@
                 if (angular.isString(template)) {
                     elem.html($compile(template)($scope));
                 }
+            }
+        };
+    }])
+    
+    /**
+     * A uxTable row selector. For internal use only.
+     */
+    .directive('uxTableSelection', ['$timeout', function($timeout) {
+        return {
+            priority: 0,
+            replace: true,
+            require: '^uxTable',
+            scope: {
+                content: '=',
+                selection: '=',
+                selectionKey: '='
+            },
+            link: function($scope, elem, attrs, ctrl) {
+                
+                var updateState = function(newVal, oldVal) {
+                    if (newVal === oldVal) { return; }
+                    var numberOfItemsSelected = 0;
+                    for (var i = 0; i < $scope.content.length; i++) {
+                        if ($scope.selection.indexOf($scope.content[i][$scope.selectionKey]) !== -1) {
+                            numberOfItemsSelected += 1;
+                        }
+                    }
+                    switch (numberOfItemsSelected) {
+                        case 0: // none selected
+                            elem.prop('checked', false).prop('indeterminate', false); break;
+                        case $scope.content.length: // all selected
+                            elem.prop('checked', true).prop('indeterminate', false); break;
+                        default: // some selected
+                            elem.prop('checked', false).prop('indeterminate', true);
+                    }
+                };
+                $scope.$watch('content', updateState, true);
+                $scope.$watch('selection', updateState, true);
+                
+                elem.bind('change', function() {
+                    $timeout(function() {
+                        if(elem.prop('checked')) {
+                            ctrl.select($scope.content);
+                        } else {
+                            ctrl.deselect($scope.content);
+                        }
+                    });
+                });
             }
         };
     }])
@@ -446,15 +639,15 @@
                     });
                     
                     $scope.ngModel = { id: 0 };
-                    $scope.$on('uxTable.state', function(event, state) {
-                        if (!_.some($scope.cfg.options, 'id', state.pageSize)) {
+                    $scope.$on('uxTable.paginationChanged', function(event, pagination) {
+                        if (!_.some($scope.cfg.options, 'id', pagination.pageSize)) {
                             var idx = _.findIndex($scope.cfg.options, function(option) {
-                                return option.id > state.pageSize;
+                                return option.id > pagination.pageSize;
                             });
                             idx = idx < 0 ? $scope.cfg.options.length : idx;
-                            $scope.cfg.options.splice(idx, 0, { id: state.pageSize, label: '' + state.pageSize });
+                            $scope.cfg.options.splice(idx, 0, { id: pagination.pageSize, label: '' + pagination.pageSize });
                         }
-                        $scope.ngModel = { id: state.pageSize };
+                        $scope.ngModel = { id: pagination.pageSize };
                         $scope.cfg.isInit = true;
                     });
                 }
@@ -465,8 +658,8 @@
     /**
      * Displays the number of elements currently visible in the uxTable.
      * 
-     * @param {String|false} [uxTableCounter.i18n=false] A $translate key to be used (uxTable state available in $scope).
-     * @param {String} [uxTableCounter.template='{{ from }} – {{ to }} of {{ total }}'] A custom template (uxTable state available in $scope).
+     * @param {String|false} [uxTableCounter.i18n=false] A $translate key to be used (uxTable pagination state available in $scope).
+     * @param {String} [uxTableCounter.template='{{ from }} – {{ to }} of {{ total }}'] A custom template (uxTable pagination state available in $scope).
      */
     .directive('uxTableCounter', ['$compile', function($compile) {
         return {
@@ -491,11 +684,11 @@
                     elem.html($compile($scope.cfg.template)($scope));
                 }
                 
-                $scope.$on('uxTable.state', function(event, state) {
+                $scope.$on('uxTable.paginationChanged', function(event, pagination) {
                     if (angular.isString($scope.cfg.i18n)) {
-                        $scope.state = state;
+                        $scope.pagination = pagination;
                     } else {
-                        angular.extend($scope, state);
+                        angular.extend($scope, pagination);
                     }
                     $scope.isInit = true;
                 });

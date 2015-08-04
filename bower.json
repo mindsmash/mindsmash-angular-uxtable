@@ -1,26 +1,33 @@
 {
-    "name": "mindsmash-angular-uxtable",
-    "version": "0.1.0",
-    "authors": ["mindsmash GmbH"],
-    "description": "A data table for AngularJS.",
-    "main": "dist/mindsmash-angular-uxtable.min.js",
-    "keywords": ["angular", "table", "grid"],
-    "license": "MIT",
-    "homepage": "https://github.com/mindsmash/mindsmash-angular-uxtable",
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:mindsmash/mindsmash-angular-uxtable.git"
-    },
-    "dependencies": {
-        "angular-bootstrap": "0.13.0",
-        "angularjs-dropdown-multiselect": "1.5.2",
-        "lodash": "3.10.0"
-    },
-    "ignore": [
-        "**/.*",
-        "node_modules",
-        "bower_components",
-        "test",
-        "example"
-    ]
+  "name": "mindsmash-angular-uxtable",
+  "version": "0.1.1",
+  "authors": [
+    "mindsmash GmbH"
+  ],
+  "description": "A data table for AngularJS.",
+  "main": "dist/mindsmash-angular-uxtable.min.js",
+  "keywords": [
+    "angular",
+    "table",
+    "grid"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/mindsmash/mindsmash-angular-uxtable",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:mindsmash/mindsmash-angular-uxtable.git"
+  },
+  "dependencies": {
+    "angular-bootstrap": "0.13.0",
+    "angularjs-dropdown-multiselect": "1.5.2",
+    "lodash": "3.10.0",
+    "checklist-model": "~0.2.4"
+  },
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "example"
+  ]
 }
