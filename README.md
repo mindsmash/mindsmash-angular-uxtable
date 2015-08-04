@@ -1,6 +1,11 @@
 # mindsmash-angular-uxtable
 Yet another data table for AngularJS.
 
+
+### Table of Contents
+
+
+
 ### Features
 
 * Sorting (no *multisort*)
@@ -49,12 +54,18 @@ coming soon...
 
 #### 3.1 Sorting
 
+
+
+#### 3.2 Sorting
+
 * `getSorting()` - Returns the current table sorting. The result object will be of the form `{ key: 'name', asc: true }`.
 * `setSorting(key, asc)` - Sets the table sorting. Sorting will be ignored for unknown or unsortable table columns.
   * `{String} key`: The column key.
   * `{Boolean} [asc]`: The sorting direction. The referenced column will be toggled if *asc* is missing. The toggle sequence will be: a) ascending, b) decending, c) no sorting.
 
-#### 3.2 Pagination
+**[Back to top](#table-of-contents)**
+
+#### 3.3 Pagination
 
 * `getPage()` - Returns the current page.
 * `getPageSize()` - Returns the current page size.
@@ -66,7 +77,7 @@ coming soon...
   * `{Number} [page]`: The new page.
   * `{Number} [pageSize]`: The new page size.
 
-#### 3.3 Selection
+#### 3.4 Selection
 
 * `select()` - Select one or more table rows.
   * `{String|Array|Object} items`: The items to be selected in the table. This can either be a single table row (or table row key) or a list of table rows (or table row keys). If no argument is present, all items *of the current page* will be selected.
