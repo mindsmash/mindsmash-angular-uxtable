@@ -58,7 +58,7 @@
                     page: data.page.number,
                     pageSize: data.page.size,
                 },
-                content: data
+                content: data // TODO
             };
             if (angular.isArray(data.sort) && data.sort.length > 0) {
                 result.state.orderBy = {
@@ -152,7 +152,12 @@
                             $timeout(function() {
                                 var response = $scope.cfg.responseConverter(data);
                                 angular.extend($scope.state, response.state);
-                                broadcast('uxTable.stateChanged', $scope.state);
+                                broadcast('uxTable.paginationChanged', {
+                                    page: $scope.state.page,
+                                    pageSize: $scope.state.pageSize,
+                                    count: $scope.state.count,
+                                    countTotal: $scope.state.countTotal,
+                                });
                                 $scope.content = response.content;
                                 broadcast('uxTable.contentChanged', $scope.content);
                             });
@@ -173,7 +178,6 @@
                  * 
                  * @param {String} columnData.key The internally used column key.
                  * @param {String} columnData.name The column's header name.
-                 * @param {Boolean} [columnData.sticky=true] The column's visibility possibilities.
                  * @param {Boolean} [columnData.show=true] The column's visibility status.
                  * @param {Boolean} [columnData.sort=true] The column's sorting possibilities.
                  * @param {String} [columnData.template] A custom template ('column' and 'row' available in $scope).
@@ -255,7 +259,7 @@
                     for (var i = 0; i < $scope.columns.length; i++) {
                         var column = $scope.columns[i];
                         if (column.key === key) {
-                            if (!column.sticky && column.show !== show) {
+                            if (column.show !== show) {
                                 column.show = show;
                                 broadcast('uxTable.visibilityChanged', $scope.columns);
                             }
@@ -266,10 +270,10 @@
                 };
                 
                 this.toggleVisibility = function(key) {
-                    if (this.isVisible(key)) {
-                        setVisibility(key, true);
+                    if (this.getVisibility(key)) {
+                        this.setVisibility(key, false);
                     } else {
-                        setVisibility(key, false);
+                        this.setVisibility(key, true);
                     }
                 };
                 
@@ -339,10 +343,6 @@
                         reload = true;
                     }
                     if (reload) {
-                        broadcast('uxTable.paginationChanged', {
-                            page: $scope.state.page,
-                            pageSize: $scope.state.pageSize
-                        });
                         this.reload();
                     }
                 };
@@ -575,10 +575,10 @@
                     }
                 });
                 
-                $scope.$on('uxTable.state', function(event, state) {
-                    $scope.cfg.ngModel = state.page + 1;
-                    $scope.cfg.totalItems = state.countTotal;
-                    $scope.cfg.itemsPerPage = state.pageSize;
+                $scope.$on('uxTable.paginationChanged', function(event, pagination) {
+                    $scope.cfg.ngModel = pagination.page + 1;
+                    $scope.cfg.totalItems = pagination.countTotal;
+                    $scope.cfg.itemsPerPage = pagination.pageSize;
                     $scope.cfg.isInit = true;
                 });
             }
@@ -654,6 +654,55 @@
             }
         };
     })
+    
+    /**
+     * Displays the number of elements currently selected in the uxTable.
+     * 
+     * @param {String|false} [uxTableSelectionCounter.i18n=false] A $translate key to be used (uxTable selection available in $scope).
+     * @param {String} [uxTableSelectionCounter.template='{{ from }} – {{ to }} of {{ total }}'] A custom template (uxTable selection available in $scope).
+     */
+    .directive('uxTableSelectionCounter', ['$compile', function($compile) {
+        return {
+            priority: 0,
+            scope: true,
+            replace: true,
+            restrict: 'A',
+            require: '^uxTableScope',
+            templateUrl: '_uxTableSelectionCounter.html',
+            link: function($scope, elem, attr, ctrl) {
+                var attrCfg = attr.uxTableSelectionCounter;
+                var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
+                
+                $scope.cfg = angular.extend({
+                    i18n: false,
+                    template: '<span ng-show=\"selectionSize\">{{ selectionSize }} selected (<a href="#" ng-click="resetSelection()">clear</a>)</span>'
+                }, evalCfg);
+                
+                if (!angular.isString($scope.cfg.i18n)) {
+                    elem.html($compile($scope.cfg.template)($scope));
+                }
+                
+                $scope.resetSelection = function() {
+                    ctrl.$tableCtrl.setSelection([]);
+                };
+                
+                var selectionChanged = function(event, selection) {
+                    var selectionData = {
+                        selectionKeys: selection,
+                        selectionSize: selection.length
+                    };
+                    if (angular.isString($scope.cfg.i18n)) {
+                        $scope.selection = selectionData;
+                    } else {
+                        angular.extend($scope, selectionData);
+                    }
+                };
+                
+                selectionChanged(null, []); // init
+                $scope.$on('uxTable.selectionChanged', selectionChanged);
+            }
+        };
+    }])
     
     /**
      * Displays the number of elements currently visible in the uxTable.
@@ -742,14 +791,14 @@
                         events: {
                             onItemSelect: function(item) {
                                 if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.toggleColumn(item.key, true);
+                                    ctrl.$tableCtrl.toggleVisibility(item.key, true);
                                 }
                             },
                             onItemDeselect: function(item) {
                                 if ($scope.ngModel.length === 0) {
                                     $scope.ngModel.push(item);
                                 } else if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.toggleColumn(item.key, false);
+                                    ctrl.$tableCtrl.toggleVisibility(item.key, false);
                                 }
                             }
                         },
@@ -757,7 +806,7 @@
                     });
                     
                     $scope.ngModel = [];
-                    $scope.$on('uxTable.columns', function(event, columns) {
+                    $scope.$on('uxTable.columnsChanged', function(event, columns) {
                         
                         $scope.cfg.options = [];
                         

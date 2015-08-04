@@ -58,7 +58,7 @@
                     page: data.page.number,
                     pageSize: data.page.size,
                 },
-                content: data.data // TODO
+                content: data // TODO
             };
             if (angular.isArray(data.sort) && data.sort.length > 0) {
                 result.state.orderBy = {
@@ -86,7 +86,7 @@
                 
                 $scope.state = {
                     page: 0,
-                    pageSize: 2,
+                    pageSize: 10,
                     orderBy: {
                         key: 'id', // TODO: should be the selection key maybe?
                         asc: true
@@ -158,9 +158,6 @@
                                     count: $scope.state.count,
                                     countTotal: $scope.state.countTotal,
                                 });
-                                
-                                
-                                
                                 $scope.content = response.content;
                                 broadcast('uxTable.contentChanged', $scope.content);
                             });
@@ -659,6 +656,55 @@
     })
     
     /**
+     * Displays the number of elements currently selected in the uxTable.
+     * 
+     * @param {String|false} [uxTableSelectionCounter.i18n=false] A $translate key to be used (uxTable selection available in $scope).
+     * @param {String} [uxTableSelectionCounter.template='{{ from }} – {{ to }} of {{ total }}'] A custom template (uxTable selection available in $scope).
+     */
+    .directive('uxTableSelectionCounter', ['$compile', function($compile) {
+        return {
+            priority: 0,
+            scope: true,
+            replace: true,
+            restrict: 'A',
+            require: '^uxTableScope',
+            templateUrl: '_uxTableSelectionCounter.html',
+            link: function($scope, elem, attr, ctrl) {
+                var attrCfg = attr.uxTableSelectionCounter;
+                var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
+                
+                $scope.cfg = angular.extend({
+                    i18n: false,
+                    template: '<span ng-show=\"selectionSize\">{{ selectionSize }} selected (<a href="#" ng-click="resetSelection()">clear</a>)</span>'
+                }, evalCfg);
+                
+                if (!angular.isString($scope.cfg.i18n)) {
+                    elem.html($compile($scope.cfg.template)($scope));
+                }
+                
+                $scope.resetSelection = function() {
+                    ctrl.$tableCtrl.setSelection([]);
+                };
+                
+                var selectionChanged = function(event, selection) {
+                    var selectionData = {
+                        selectionKeys: selection,
+                        selectionSize: selection.length
+                    };
+                    if (angular.isString($scope.cfg.i18n)) {
+                        $scope.selection = selectionData;
+                    } else {
+                        angular.extend($scope, selectionData);
+                    }
+                };
+                
+                selectionChanged(null, []); // init
+                $scope.$on('uxTable.selectionChanged', selectionChanged);
+            }
+        };
+    }])
+    
+    /**
      * Displays the number of elements currently visible in the uxTable.
      * 
      * @param {String|false} [uxTableCounter.i18n=false] A $translate key to be used (uxTable pagination state available in $scope).
@@ -761,6 +807,7 @@
                     
                     $scope.ngModel = [];
                     $scope.$on('uxTable.columnsChanged', function(event, columns) {
+                        
                         $scope.cfg.options = [];
                         
                         var deferred = $q.defer();
