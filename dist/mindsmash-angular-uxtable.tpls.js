@@ -22,7 +22,7 @@ angular.module('mindsmash.uxTable').run(['$templateCache', function($templateCac
 
 
   $templateCache.put('_uxTableSelectionCounter.html',
-    "<div class=\"ux-table-selection-counter\"><span ng-show=\"\\&quot;selection.selectionSize\\&quot;\">{{ (cfg.i18n + '.count') | translate : selection }} (<a href=\"#\" ng-click=\"resetSelection()\">{{ (cfg.i18n + '.clear') | translate : selection }}</a>)</span></div>"
+    "<div class=\"ux-table-selection-counter\"><span ng-show=\"selection.selectionSize\">{{ (cfg.i18n + '.count') | translate : selection }} (<a href=\"#\" ng-click=\"resetSelection()\">{{ (cfg.i18n + '.clear') | translate : selection }}</a>)</span></div>"
   );
 
 
