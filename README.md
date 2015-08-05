@@ -12,7 +12,7 @@ Yet another data table for AngularJS. **This library is work in progress.**
 
    - [Installation](#1-installation)
    - [Configuration](#2-configuration)
-   - [Scope & Directives](#3-scope-directives)
+   - [Scope & Directives](#3-scope--directives)
    - [API](#4-api)
       - [Column Definition](#41-column-definition)
       - [Column Visibility](#42-column-visibility)
