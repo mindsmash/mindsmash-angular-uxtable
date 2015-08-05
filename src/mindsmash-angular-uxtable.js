@@ -81,6 +81,7 @@
             require: ['uxTable', '?^^uxTableScope'],
             templateUrl: '_uxTable.html',
             controller: ['$scope', '$element', function($scope, $element) {
+                var self = this;
                 
                 // ===== Table State TODO: retrieve from config
                 
@@ -93,7 +94,7 @@
                     }
                 };
                 
-                this.getConfig = function() {
+                self.getConfig = function() {
                     return $scope.cfg;
                 };
                 
@@ -111,7 +112,7 @@
                 
                 $scope.content = [];
                 
-                this.setSource = function(src) {
+                self.setSource = function(src) {
                     if (angular.isFunction(src) || angular.isObject(src) || angular.isArray(src)) {
                         source = src;
                         broadcast('uxTable.sourceChanged', source);
@@ -120,7 +121,7 @@
                     }
                 };
                 
-                this.reload = function() {
+                self.reload = function() {
                     var promise = null;
                     if (angular.isFunction(source)) {
                         var fncParams = $scope.cfg.requestConverter($scope.state);
@@ -195,7 +196,7 @@
                  * @param {Object} columnData The column definition.
                  * @param {Number} [idx] The index at which the column should be added.
                  */
-                this.addColumn = function(columnData, idx) {
+                self.addColumn = function(columnData, idx) {
                     var column = buildColumn(columnData);
                     for (var i = 0; i < $scope.columns.length; i++) {
                         if ($scope.columns[i].key === column.key) {
@@ -212,7 +213,7 @@
                  * 
                  * @param {String} key The column key.
                  */
-                this.removeColumn = function(key) {
+                self.removeColumn = function(key) {
                     for (var i = 0; i < $scope.columns.length; i++) {
                         if ($scope.columns[i].key === key) {
                             $scope.columns.splice(i, 1);
@@ -228,7 +229,7 @@
                  * 
                  * @param {Object[]} columnsData The column definitions.
                  */
-                this.setColumns = function(columnsData) {
+                self.setColumns = function(columnsData) {
                     var keys = [];
                     var columns = [];
                     for (var i = 0; i < columnsData.length; i++) {
@@ -245,7 +246,7 @@
                 
                 // ===== Column Visibility
                 
-                this.getVisibility = function(key) {
+                self.getVisibility = function(key) {
                     for (var i = 0; i < $scope.columns.length; i++) {
                         var column = $scope.columns[i];
                         if (column.key === key) {
@@ -255,7 +256,7 @@
                     throw 'Unknown column key: ' + key;
                 };
                 
-                this.setVisibility = function(key, show) {
+                self.setVisibility = function(key, show) {
                     for (var i = 0; i < $scope.columns.length; i++) {
                         var column = $scope.columns[i];
                         if (column.key === key) {
@@ -269,21 +270,21 @@
                     throw 'Unknown column key: ' + key;
                 };
                 
-                this.toggleVisibility = function(key) {
-                    if (this.getVisibility(key)) {
-                        this.setVisibility(key, false);
+                self.toggleVisibility = function(key) {
+                    if (self.getVisibility(key)) {
+                        self.setVisibility(key, false);
                     } else {
-                        this.setVisibility(key, true);
+                        self.setVisibility(key, true);
                     }
                 };
                 
                 // ===== Table Sorting
                 
-                this.getSorting = function() {
+                self.getSorting = function() {
                     return $scope.state.orderBy;
                 };
                 
-                this.setSorting = function(key, asc) {
+                self.setSorting = function(key, asc) {
                     for (var i = 0; i < $scope.columns.length; i++) {
                         var column = $scope.columns[i];
                         if (column.key === key) {
@@ -299,7 +300,7 @@
                                     delete $scope.state.orderBy;
                                 }
                                 broadcast('uxTable.sortingChanged', $scope.state.orderBy);
-                                this.reload();
+                                self.reload();
                             }
                             return;
                         }
@@ -309,30 +310,30 @@
                 
                 // ===== Table Pagination
                 
-                this.getPage = function() {
+                self.getPage = function() {
                     return $scope.state.page;
                 };
                 
-                this.setPage = function(page) {
-                    this.setPagination(page, null);
+                self.setPage = function(page) {
+                    self.setPagination(page, null);
                 };
                 
-                this.getPageSize = function() {
+                self.getPageSize = function() {
                     return $scope.state.pageSize;
                 };
                 
-                this.setPageSize = function(pageSize) {
-                    this.setPagination(null, pageSize);
+                self.setPageSize = function(pageSize) {
+                    self.setPagination(null, pageSize);
                 };
                 
-                this.getPagination = function() {
+                self.getPagination = function() {
                     return {
                         page: $scope.state.page,
                         pageSize: $scope.state.pageSize
                     };
                 };
                 
-                this.setPagination = function(page, pageSize) {
+                self.setPagination = function(page, pageSize) {
                     var reload = false;
                     if (angular.isNumber(page) && 0 <= page) {
                         $scope.state.page = page;
@@ -343,7 +344,7 @@
                         reload = true;
                     }
                     if (reload) {
-                        this.reload();
+                        self.reload();
                     }
                 };
                 
@@ -356,7 +357,7 @@
                     }
                 }, true);
                 
-                this.select = function(items) {
+                self.select = function(items) {
                     if (angular.isUndefined(items)) { // select all
                         $scope.state.selection = $scope.content.reduce(function(acc, item) {
                             var key = item[$scope.cfg.selectionKey];
@@ -382,7 +383,7 @@
                     }
                 };
                 
-                this.deselect = function(items) {
+                self.deselect = function(items) {
                     if (angular.isUndefined(items)) { // deselect all
                         $scope.state.selection = $scope.content.reduce(function(acc, item) {
                             var key = item[$scope.cfg.selectionKey];
@@ -410,11 +411,11 @@
                     }
                 };
                 
-                this.getSelection = function() {
+                self.getSelection = function() {
                     return $scope.state.selection;
                 };
                 
-                this.setSelection = function(items) {
+                self.setSelection = function(items) {
                     var selection = [];
                     for (var i = 0; i < items.length; i++) {
                         var item = items[i];
@@ -428,7 +429,6 @@
             }],
             link: {
                 pre: function($scope, elem, attr, ctrl) {
-                    
                     // ===== Expose API
                     if (ctrl[1] !== null) {
                         ctrl[1].init(ctrl[0], elem);
@@ -440,26 +440,24 @@
                     var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
                     ctrl.cfg = angular.extend(uxTableConf, evalCfg);
                     
-                    
-                    // ===== API Binding
+                    // ===== API Binding | $scope
                     $scope.cfg = ctrl.cfg;
+                    $scope.sortBy = ctrl[0].setSorting;
+                    
+                    // ===== API Binding | $scope.$parent
+                    var uuid = function() {
+                        var s4 = function() {
+                            return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+                        };
+                        return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
+                    };
+                    var tableName = $scope.cfg.name || uuid();
+                    $scope.$parent[tableName] = ctrl[0];
                     
                     // ===== Initialization
                     ctrl[0].setColumns($scope.cfg.columns);
                     ctrl[0].setSource($scope.cfg.source);
                     ctrl[0].reload();
-                    
-                    
-                    // ===== Sorting
-                    $scope.setSorting = function(key) {
-                        ctrl[0].setSorting(key);
-                    };
-                    
-                    // ===== Selection
-                    
-                    // ===== Bind API to $scope
-                    var tableName = $scope.cfg.name; //TODO: || Util.uuid();
-                    $scope.$parent[tableName] = ctrl[0];
                 }
             }
         };
