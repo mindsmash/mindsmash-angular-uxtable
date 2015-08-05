@@ -12,12 +12,13 @@ Yet another data table for AngularJS. **This library is work in progress.**
 
    - [Installation](#1-installation)
    - [Configuration](#2-configuration)
-   - [API](#3-api)
-      - [Column Definition](#31-column-definition)
-      - [Column Visibility](#32-column-visibility)
-      - [Sorting](#33-sorting)
-      - [Pagnation](#34-pagination)
-      - [Selection](#35-selection)
+   - [Scope & Directives](#3-scope-directives)
+   - [API](#4-api)
+      - [Column Definition](#41-column-definition)
+      - [Column Visibility](#42-column-visibility)
+      - [Sorting](#43-sorting)
+      - [Pagnation](#44-pagination)
+      - [Selection](#45-selection)
 
 ### 1. Installation:
 
@@ -66,17 +67,21 @@ Yet another data table for AngularJS. **This library is work in progress.**
 
 **[Back to top](#table-of-contents)**
 
-### 3. API
-
-#### 3.1 Column Definition
+### 3. Scope & Directives
 
 **[Back to top](#table-of-contents)**
 
-#### 3.2 Column Visibility
+### 4. API
+
+#### 4.1 Column Definition
 
 **[Back to top](#table-of-contents)**
 
-#### 3.3 Sorting
+#### 4.2 Column Visibility
+
+**[Back to top](#table-of-contents)**
+
+#### 4.3 Sorting
 
 * `getSorting()` - Returns the current table sorting.
 * `setSorting(key, asc)` - Sets the table sorting. Sorting will be ignored for unknown or unsortable table columns.
@@ -85,7 +90,7 @@ Yet another data table for AngularJS. **This library is work in progress.**
 
 **[Back to top](#table-of-contents)**
 
-#### 3.4 Pagination
+#### 4.4 Pagination
 
 * `getPage()` - Returns the current page.
 * `getPageSize()` - Returns the current page size.
@@ -100,7 +105,7 @@ Yet another data table for AngularJS. **This library is work in progress.**
 
 **[Back to top](#table-of-contents)**
 
-#### 3.5 Selection
+#### 4.5 Selection
 
 * `select()` - Select one or more table rows.
   * `{String|Array|Object} items`: The items to be selected in the table. This can either be a single table row (or table row key) or a list of table rows (or table row keys). If no argument is present, all items *of the current page* will be selected.
