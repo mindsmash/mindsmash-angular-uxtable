@@ -14,6 +14,9 @@
         </tr>
     </thead>
     <tbody>
+        <tr>
+            <td colspan="{{ 1 + (columns | filter : { show: true }).length }}" class="ux-table-empty" ng-if="!content.length">---</td>
+        <tr/>
         <tr ng-repeat="row in content" ng-init="$rowIndex = state.page * state.pageSize + $index + 1; $rowClass = cfg.rowClick(row, idx);" ng-click="cfg.rowClick(row, $rowIndex, $event)" ng-class="$rowClass">
             <td class="ux-table-selection"><input type="checkbox" checklist-model="state.selection" checklist-value="row[cfg.selectionKey]"></td>
             <td ng-repeat="column in columns | filter : { show: true }" ux-table-cell data-label="{{ column.i18n ? (column.i18n | translate) : column.name }}" data-empty="{{ !row[column.key] }}">{{ row[column.key] }}</td>

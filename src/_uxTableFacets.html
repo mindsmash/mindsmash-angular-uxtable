@@ -1,0 +1,12 @@
+<div class="ux-table-facets">
+	<ul class="list-group" ng-repeat="column in cfg.columns" ng-if="column.show">
+		<li class="list-group-item list-group-input" ng-class="{ active: !!columnFilter }">
+			<span class="badge pointer pull-right" ng-click="columnFilter = ''; setFilter(column.key, '')">&times;</span>
+			<input type="text" class="form-control input-sm" placeholder="{{ column.name }}" ng-model="columnFilter" ng-model-options="{ updateOn: 'default blur', debounce: {'default': 500, 'blur': 0} }" ng-change="setFilter(column.key, columnFilter)">
+		</li>
+		<li ng-repeat="term in cfg.facets[column.key].terms.slice(0, 10)" ng-if="term.count > 1" class="list-group-item pointer" ng-class="{ active: term.active }" ng-click="toggleFacet(column.key, term.term)">
+			<span class="badge pull-right">{{ term.count }}</span>
+			{{ term.term }} 
+		</li>
+	</ul>
+</div>

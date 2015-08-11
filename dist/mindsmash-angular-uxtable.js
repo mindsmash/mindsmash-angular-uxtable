@@ -1,6 +1,19 @@
 (function(angular) {
     'use strict';
     
+    var isFacetTermActive = function(facets, facetName, termName) {
+        var facet = facets[facetName];
+        if (facet) {
+            for (var i = 0; i < facet.terms.length; i++) {
+                var termObj = facet.terms[i];
+                if (termObj.term === termName) {
+                    return termObj.active === true;
+                }
+            }
+        }
+        return false;
+    };
+    
     angular.module('mindsmash.uxTable', ['checklist-model', 'angularjs-dropdown-multiselect', 'ui.bootstrap.pagination'])
     
     /**
@@ -40,17 +53,37 @@
         rowClass: angular.noop,
         rowClick: angular.noop,
         selectionKey: 'id',
-        requestConverter: function(state) {
+        requestConverter: function(state, columns) {
             var orderBy = state.orderBy;
-            return _.pick({
+            var pagination = _.pick({
                 _page: state.page,
                 _pageSize: state.pageSize,
                 _orderBy: (orderBy && orderBy.key) ? orderBy.key + (orderBy.asc ? ',asc' : ',desc') : null
             }, function(value) {
                 return angular.isDefined(value) && value !== null;
             });
+            
+            var facets = {};
+            // collect facet options
+            for (var i = 0; i < columns.length; i++) {
+                facets['$' + columns[i].key] = [''];
+            }
+            // collect active facets
+            for (var termName in state.facets) {
+                if (state.facets.hasOwnProperty(termName)) {
+                    var facet = state.facets[termName];
+                    for (var j = 0; j < facet.terms.length; j++) {
+                        var termObj = facet.terms[j];
+                        if (termObj.active) {
+                            facets['$' + termName].push(termObj.term);
+                        }
+                    }
+                }
+            }
+            
+            return angular.extend(pagination, facets, state.filters);
         },
-        responseConverter: function(data) {
+        responseConverter: function(data, state) {
             var result = {
                 state: {
                     count: data.page.numberOfElements,
@@ -58,14 +91,34 @@
                     page: data.page.number,
                     pageSize: data.page.size,
                 },
-                content: data // TODO
+                content: data
             };
-            if (angular.isArray(data.sort) && data.sort.length > 0) {
+            
+            var sort = data.sort;
+            if (angular.isArray(sort) && sort.length > 0) {
                 result.state.orderBy = {
-                    key: data.sort[0].property,
-                    asc: data.sort[0].ascending
+                    key: sort[0].property,
+                    asc: sort[0].ascending
                 };
             }
+            
+            var facets = data.page.facets;
+            if (angular.isArray(facets) && facets.length > 0) {
+                var facetsObj = {};
+                for (var i = 0; i < facets.length; i++) {
+                    var facet = facets[i];
+                    for (var j = 0; j < facet.terms.length; j++) {
+                        facet.terms[j].active = isFacetTermActive(state.facets, facet.name, facet.terms[j].term);
+                    }
+                    facetsObj[facet.name] = {
+                        name: facet.name,
+                        type: facet.type,
+                        terms: facet.terms
+                    };
+                }
+                result.state.facets = facetsObj;
+            }
+            
             return result;
         }
     })
@@ -124,7 +177,7 @@
                 self.reload = function() {
                     var promise = null;
                     if (angular.isFunction(source)) {
-                        var fncParams = $scope.cfg.requestConverter($scope.state);
+                        var fncParams = $scope.cfg.requestConverter($scope.state, $scope.columns);
                         promise = source(fncParams);
                     } else if (angular.isArray(source)) {
                         var start = $scope.state.page * $scope.state.pageSize;
@@ -141,7 +194,7 @@
                         });
                         promise = deferred.promise;
                     } else if (angular.isObject(source)) {
-                        var reqParams = $scope.cfg.requestConverter($scope.state);
+                        var reqParams = $scope.cfg.requestConverter($scope.state, $scope.columns);
                         if (source.method === 'GET') {
                             promise = $http(angular.merge({ params: reqParams }, source));
                         } else {
@@ -151,8 +204,9 @@
                     if (promise !== null) {
                         promise.then(function(data) {
                             $timeout(function() {
-                                var response = $scope.cfg.responseConverter(data);
+                                var response = $scope.cfg.responseConverter(data, $scope.state);
                                 angular.extend($scope.state, response.state);
+                                broadcast('uxTable.facetsChanged', $scope.state.facets);
                                 broadcast('uxTable.paginationChanged', {
                                     page: $scope.state.page,
                                     pageSize: $scope.state.pageSize,
@@ -358,7 +412,7 @@
                 }, true);
                 
                 self.select = function(items) {
-                    if (angular.isUndefined(items)) { // select all
+                    if (angular.isUndefined(items)) { // select page
                         $scope.state.selection = $scope.content.reduce(function(acc, item) {
                             var key = item[$scope.cfg.selectionKey];
                             if ($scope.state.selection.indexOf(key) === -1) {
@@ -384,7 +438,7 @@
                 };
                 
                 self.deselect = function(items) {
-                    if (angular.isUndefined(items)) { // deselect all
+                    if (angular.isUndefined(items)) { // deselect page
                         $scope.state.selection = $scope.content.reduce(function(acc, item) {
                             var key = item[$scope.cfg.selectionKey];
                             var idx = $scope.state.selection.indexOf(key);
@@ -426,9 +480,57 @@
                     }
                     $scope.state.selection = selection;
                 };
+                
+                // ===== Table Filter
+                
+                $scope.state.filters = {};
+                
+                self.getFilters = function() {
+                    return $scope.state.filters;
+                };
+                
+                self.getFilter = function(name) {
+                    return $scope.state.filters[name];
+                };
+                
+                self.setFilter = function(name, filter) {
+                    if (filter) {
+                        $scope.state.filters[name] = filter;
+                    } else {
+                        delete $scope.state.filters[name];
+                    }
+                    self.reload();
+                };
+                
+                // ===== Table Facets
+                
+                $scope.state.facets = {};
+                
+                self.getFacets = function() {
+                    return $scope.state.facets;
+                };
+                
+                self.getFacet = function(name) {
+                    return $scope.state.facets[name];
+                };
+                
+                self.toggleFacet = function(name, term) {
+                    var facet = $scope.state.facets[name];
+                    if (angular.isDefined(facet)) {
+                        for (var i = 0; i < facet.terms.length; i++) {
+                            var termObj = facet.terms[i];
+                            if (termObj.term === term) {
+                                termObj.active = !termObj.active;
+                                self.reload();
+                                return;
+                            }
+                        }
+                    }
+                };
             }],
             link: {
                 pre: function($scope, elem, attr, ctrl) {
+                    
                     // ===== Expose API
                     if (ctrl[1] !== null) {
                         ctrl[1].init(ctrl[0], elem);
@@ -805,7 +907,6 @@
                     
                     $scope.ngModel = [];
                     $scope.$on('uxTable.columnsChanged', function(event, columns) {
-                        
                         $scope.cfg.options = [];
                         
                         var deferred = $q.defer();
@@ -855,6 +956,51 @@
                     }
                     elem.find('button').html(html);
                 }
+            }
+        };
+    }])
+    
+    .directive('uxTableFacets', [function() {
+        return {
+            priority: 0,
+            scope: true,
+            restrict: 'A',
+            require: '^uxTableScope',
+            templateUrl: '_uxTableFacets.html',
+            link: function($scope, elem, attr, ctrl) {
+                var attrCfg = attr.uxTableFacets;
+                var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
+                
+                $scope.cfg = angular.extend({
+                    caret: true
+                }, evalCfg, {
+                    isInit: false
+                });
+                
+                $scope.setFilter = function(key, value) {
+                    if (angular.isDefined(ctrl.$tableCtrl)) {
+                        ctrl.$tableCtrl.setFilter(key, value);
+                    }
+                };
+                $scope.toggleFacet = function(key, value) {
+                    if (angular.isDefined(ctrl.$tableCtrl)) {
+                        ctrl.$tableCtrl.toggleFacet(key, value);
+                    }
+                };
+                
+                function update(event, columns) {
+                    $scope.cfg.isInit = true;
+                    $scope.cfg.columns = columns;
+                    console.log(columns);
+                    
+                }
+                
+                $scope.$on('uxTable.columnsChanged', update);
+                $scope.$on('uxTable.visibilityChanged', update);
+                $scope.$on('uxTable.facetsChanged', function(e, facets) {
+                    $scope.cfg.isInit = true;
+                    $scope.cfg.facets = facets;
+                });
             }
         };
     }]);
