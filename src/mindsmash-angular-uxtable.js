@@ -349,7 +349,7 @@
         return {
             replace: true,
             restrict: 'AE',
-            templateUrl: '_uxTableView.hmtl',
+            templateUrl: '_uxTableView.html',
             scope: {
                 api: '&'
             },
@@ -439,7 +439,7 @@
         return {
             replace: true,
             restrict: 'AE',
-            templateUrl: '_uxTablePagination.hmtl',
+            templateUrl: '_uxTablePagination.html',
             scope: {
                 api: '&'
             },
@@ -471,7 +471,7 @@
         return {
             replace: true,
             restrict: 'AE',
-            templateUrl: '_uxTablePaginationSize.hmtl',
+            templateUrl: '_uxTablePaginationSize.html',
             scope: {
                 api: '&'
             },
@@ -546,7 +546,7 @@
         return {
             replace: true,
             restrict: 'AE',
-            templateUrl: '_uxTableToggle.hmtl',
+            templateUrl: '_uxTableToggle.html',
             scope: {
                 api: '&'
             },
@@ -634,7 +634,7 @@
         return {
             replace: true,
             restrict: 'AE',
-            templateUrl: '_uxTableCounter.hmtl',
+            templateUrl: '_uxTableCounter.html',
             scope: {
                 api: '&'
             },
@@ -668,7 +668,7 @@
         return {
             replace: true,
             restrict: 'AE',
-            templateUrl: '_uxTableSelectionCounter.hmtl',
+            templateUrl: '_uxTableSelectionCounter.html',
             scope: {
                 api: '&'
             },
@@ -706,7 +706,7 @@
         return {
             replace: true,
             restrict: 'AE',
-            templateUrl: '_uxTableFacets.hmtl',
+            templateUrl: '_uxTableFacets.html',
             scope: {
                 api: '&'
             },
