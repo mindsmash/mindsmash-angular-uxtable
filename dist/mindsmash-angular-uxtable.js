@@ -38,6 +38,17 @@
             filters: {}
         }, tableConfig);
         
+        // TODO: cleanup
+        // normalize columns
+        for (var i = 0; i < config.columns.length; i++) {
+            config.columns[i] = angular.extend({
+                show: true,
+                sort: true,
+                filter: true,
+                facets: false
+            }, config.columns[i]);
+        }
+        
         var data = [];
         
         self.load = function() {
@@ -236,6 +247,37 @@
             }
         };
         
+        // ===== Table Sorting
+        
+        self.getSorting = function() {
+            return config.orderBy;
+        };
+        
+        self.setSorting = function(key, asc) {
+            for (var i = 0; i < config.columns.length; i++) {
+                var column = config.columns[i];
+                if (column.key === key) {
+                    if (column.sort) {
+                        if (!config.orderBy || config.orderBy.key !== key) {
+                            config.orderBy = {
+                                key: key,
+                                asc: asc !== false
+                            };
+                        } else if (config.orderBy.asc === true) {
+                            config.orderBy.asc = false;
+                        } else if (config.orderBy.asc === false) {
+                            delete config.orderBy;
+                        }
+                        $rootScope.$emit('uxTable.configChanged', config);
+                        self.load();
+                    }
+                    return;
+                }
+            }
+        };
+        
+        
+        
         this.load();
     }
     
@@ -245,6 +287,7 @@
         var defaultConfig = {
             page: 0,
             pageSize: 10,
+            orderBy: null,
             view: { //TODO: cleanup
                 ngClass: 'ux-table-view table',
                 keyboard: true,
@@ -295,15 +338,20 @@
                 options: {}
             },
             requestConverter: function(config, api) {
+                var orderBy = config.orderBy;
                 var params = {
                     _page: config.page,
-                    _pageSize: config.pageSize
+                    _pageSize: config.pageSize,
+                    _orderBy: (orderBy && orderBy.key) ? orderBy.key + (orderBy.asc ? ',asc' : ',desc') : null
                 };
                 
                 var facets = {};
                 // collect facet options
                 for (var i = 0; i < config.columns.length; i++) {
-                    facets['$' + config.columns[i].key] = [''];
+                    var column = config.columns[i];
+                    if (column.facets) {
+                        facets['$' + config.columns[i].key] = [''];
+                    }
                 }
                 // collect active facets
                 for (var termName in config.facets.options) {
@@ -321,17 +369,26 @@
                 return angular.extend(params, facets, config.filters);
             },
             responseConverter: function(response, api) {
-                return {
+                var result = {
                     meta: {
                         page: response.page.number,
                         pageSize: response.page.size,
                         pageCount: response.page.totalPages,
                         count: response.page.numberOfElements,
                         countTotal: response.page.totalElements,
-                        facets: response.page.facets
+                        facets: response.page.facets || []
                     },
                     data: response
                 };
+                
+                if (angular.isArray(response.sort) && response.sort.length > 0) {
+                    result.meta.orderBy = {
+                        key: response.sort[0].property,
+                        asc: response.sort[0].ascending
+                    };
+                }
+                
+                return result;
             }
         };
         
@@ -360,6 +417,7 @@
                 var api = ctrl.api;
                 
                 $scope.conf = {};
+                $scope.sortBy = api.setSorting;
                 $scope.rowClick = function(row, idx, $event) {
                     $scope.conf.view.rowClick(row, idx, api, $event);
                 };
