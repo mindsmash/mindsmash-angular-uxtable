@@ -1,1007 +1,844 @@
 (function(angular) {
     'use strict';
     
-    var isFacetTermActive = function(facets, facetName, termName) {
-        var facet = facets[facetName];
-        if (facet) {
-            for (var i = 0; i < facet.terms.length; i++) {
-                var termObj = facet.terms[i];
-                if (termObj.term === termName) {
-                    return termObj.active === true;
-                }
+    function UxTableFactory($rootScope, $timeout, defaultConfig) {
+        this.get = function(name, config) {
+            if (angular.isUndefined(config)) {
+                config = {};
             }
-        }
-        return false;
-    };
-    
-    angular.module('mindsmash.uxTable', ['checklist-model', 'angularjs-dropdown-multiselect', 'ui.bootstrap.pagination'])
-    
-    /**
-     * Provides the outer scope for the uxTable.
-     */
-    .directive('uxTableScope', function() {
-        return {
-            priority: 100,
-            restrict: 'A',
-            controller: ['$scope', function($scope) {
-                this.$isInit = false;
-                this.$tableCtrl = undefined;
-                this.$tableElem = undefined;
-                
-                // ===== Initialization
-                this.init = function(ctrl, elem) {
-                    if (!!ctrl && !!elem) {
-                        this.$isInit = true;
-                        this.$tableCtrl = ctrl;
-                        this.$tableElem = elem;
-                    }
-                };
-                
-                // ===== Messaging
-                this.broadcast = function(name, args) {
-                    $scope.$broadcast(name, args);
-                };
-            }]
+            var tableConfig = angular.merge({}, defaultConfig, config);
+            return new UxTable($rootScope, $timeout, name, tableConfig);
         };
-    })
+    }
     
-    /**
-     * The uxTable default configuration.
-     */
-    .constant('uxTableConf', {
-        tableClass: 'table',
-        rowClass: angular.noop,
-        rowClick: angular.noop,
-        selectionKey: 'id',
-        requestConverter: function(state, columns) {
-            var orderBy = state.orderBy;
-            var pagination = _.pick({
-                _page: state.page,
-                _pageSize: state.pageSize,
-                _orderBy: (orderBy && orderBy.key) ? orderBy.key + (orderBy.asc ? ',asc' : ',desc') : null
-            }, function(value) {
-                return angular.isDefined(value) && value !== null;
+    function UxTable($rootScope, $timeout, tableName, tableConfig) {
+        var self = this;
+        
+        // ===== Table Configuration
+        
+        var storageKey = 'uxTable.' + tableName;
+        
+        var loadConfig = function() {
+            var stored = sessionStorage[storageKey];
+            return stored ? JSON.parse(sessionStorage[storageKey]) : {};
+        };
+        
+        var saveConfig = function() {
+            sessionStorage[storageKey] = JSON.stringify({
+                page: config.page,
+                pageSize: config.pageSize,
             });
-            
-            var facets = {};
-            // collect facet options
-            for (var i = 0; i < columns.length; i++) {
-                facets['$' + columns[i].key] = [''];
+        };
+        
+        var config = angular.extend({
+            source: angular.noop,
+            columns: [],
+            selection: [],
+            active: null,
+            filters: {}
+        }, tableConfig);
+        
+        var data = [];
+        
+        self.load = function() {
+            var params = config.requestConverter(config, self);
+            config.source(params).then(function(response) {
+                $timeout(function() {
+                    var converted = config.responseConverter(response, self);
+                    var facets = converted.meta.facets;
+                    delete converted.meta.facets;
+                    angular.extend(config, converted.meta);
+                    self.setFacets(facets);
+                    data = converted.data;
+                    $rootScope.$emit('uxTable.dataChanged', data);
+                });
+            });
+        };
+        
+        self.getConfig = function() {
+            return config;
+        };
+        
+        self.getData = function() {
+            return data;
+        };
+        
+        
+        // ===== Table Pagination
+        
+        self.firstPage = function() {
+            self.setPagination(0, null);
+        };
+        
+        self.prevPage = function() {
+            self.setPagination(Math.max(0, config.page - 1), null);
+        };
+        
+        self.nextPage = function() {
+            self.setPagination(Math.min(config.page + 1, config.pageCount - 1), null);
+        };
+        
+        self.lastPage = function() {
+            self.setPagination(config.pageCount - 1, null);
+        };
+        
+        self.setPage = function(page) {
+            self.setPagination(page, null);
+        };
+        
+        self.setPageSize = function(pageSize) {
+            self.setPagination(null, pageSize);
+        };
+        
+        self.setPagination = function(page, pageSize) {
+            var reload = false;
+            if (page !== null && 0 <= page && page !== config.page) {
+                config.page = page;
+                reload = true;
             }
-            // collect active facets
-            for (var termName in state.facets) {
-                if (state.facets.hasOwnProperty(termName)) {
-                    var facet = state.facets[termName];
-                    for (var j = 0; j < facet.terms.length; j++) {
-                        var termObj = facet.terms[j];
-                        if (termObj.active) {
-                            facets['$' + termName].push(termObj.term);
-                        }
-                    }
-                }
+            if (pageSize !== null && 0 < pageSize && pageSize !== config.pageSize) {
+                config.pageSize = pageSize;
+                reload = true;
             }
-            
-            return angular.extend(pagination, facets, state.filters);
-        },
-        responseConverter: function(data, state) {
-            var result = {
-                state: {
-                    count: data.page.numberOfElements,
-                    countTotal: data.page.totalElements,
-                    page: data.page.number,
-                    pageSize: data.page.size,
-                },
-                content: data
-            };
-            
-            var sort = data.sort;
-            if (angular.isArray(sort) && sort.length > 0) {
-                result.state.orderBy = {
-                    key: sort[0].property,
-                    asc: sort[0].ascending
-                };
+            if (reload) {
+                $rootScope.$emit('uxTable.configChanged', config);
+                saveConfig();
+                self.load();
             }
-            
-            var facets = data.page.facets;
-            if (angular.isArray(facets) && facets.length > 0) {
-                var facetsObj = {};
-                for (var i = 0; i < facets.length; i++) {
-                    var facet = facets[i];
-                    for (var j = 0; j < facet.terms.length; j++) {
-                        facet.terms[j].active = isFacetTermActive(state.facets, facet.name, facet.terms[j].term);
-                    }
-                    facetsObj[facet.name] = {
-                        name: facet.name,
-                        type: facet.type,
-                        terms: facet.terms
-                    };
-                }
-                result.state.facets = facetsObj;
+        };
+        
+        // ===== Table Column Toggle
+        
+        self.toggleVisibility = function(key) {
+            self.setVisibility(key, null);
+        };
+        
+        self.setVisibility = function(key, isVisible) {
+            if (angular.isObject(key)) {
+                key = key.key;
             }
-            
-            return result;
-        }
-    })
-    
-    /**
-     * The actual uxTable directive.
-     */
-    .directive('uxTable', ['$http', '$q', '$timeout', 'uxTableConf', function($http, $q, $timeout, uxTableConf) {
-        return {
-            scope: true,
-            priority: 10,
-            restrict: 'A',
-            require: ['uxTable', '?^^uxTableScope'],
-            templateUrl: '_uxTable.html',
-            controller: ['$scope', '$element', function($scope, $element) {
-                var self = this;
-                
-                // ===== Table State TODO: retrieve from config
-                
-                $scope.state = {
-                    page: 0,
-                    pageSize: 10,
-                    orderBy: {
-                        key: 'id', // TODO: should be the selection key maybe?
-                        asc: true
-                    }
-                };
-                
-                self.getConfig = function() {
-                    return $scope.cfg;
-                };
-                
-                // ===== Messaging
-                
-                var broadcast = function(name, args) {
-                    var delegate = $scope.$ctrl && $scope.$ctrl.$isInit;
-                    var delegateFn = delegate ? $scope.$ctrl.broadcast : $scope.$broadcast;
-                    delegateFn(name, args);
-                };
-                
-                // ===== Data Source
-                
-                var source = null;
-                
-                $scope.content = [];
-                
-                self.setSource = function(src) {
-                    if (angular.isFunction(src) || angular.isObject(src) || angular.isArray(src)) {
-                        source = src;
-                        broadcast('uxTable.sourceChanged', source);
-                    } else {
-                        throw 'Invalid source type: ' + (typeof src);
-                    }
-                };
-                
-                self.reload = function() {
-                    var promise = null;
-                    if (angular.isFunction(source)) {
-                        var fncParams = $scope.cfg.requestConverter($scope.state, $scope.columns);
-                        promise = source(fncParams);
-                    } else if (angular.isArray(source)) {
-                        var start = $scope.state.page * $scope.state.pageSize;
-                        var data = source.slice(start, start + $scope.state.pageSize);
-                        var deferred = $q.defer();
-                        deferred.resolve({
-                            data: data,
-                            page: {
-                                numberOfElements: data.length,
-                                totalElements: source.length,
-                                number: $scope.state.page,
-                                size: $scope.state.pageSize
-                            }
-                        });
-                        promise = deferred.promise;
-                    } else if (angular.isObject(source)) {
-                        var reqParams = $scope.cfg.requestConverter($scope.state, $scope.columns);
-                        if (source.method === 'GET') {
-                            promise = $http(angular.merge({ params: reqParams }, source));
-                        } else {
-                            promise = $http(angular.merge({ data: reqParams }, source));
-                        }
-                    }
-                    if (promise !== null) {
-                        promise.then(function(data) {
-                            $timeout(function() {
-                                var response = $scope.cfg.responseConverter(data, $scope.state);
-                                angular.extend($scope.state, response.state);
-                                broadcast('uxTable.facetsChanged', $scope.state.facets);
-                                broadcast('uxTable.paginationChanged', {
-                                    page: $scope.state.page,
-                                    pageSize: $scope.state.pageSize,
-                                    count: $scope.state.count,
-                                    countTotal: $scope.state.countTotal,
-                                });
-                                $scope.content = response.content;
-                                broadcast('uxTable.contentChanged', $scope.content);
-                            });
-                        });
-                    } else {
-                        throw 'Unknown source type: ' + promise;
-                    }
-                };
-                
-                // ===== Columns
-                
-                $scope.columns = [];
-                
-                // TODO: verify column data here
-                /**
-                 * Creates a new column object to be used in a uxTable.
-                 * Note that the returned column is not added to the table.
-                 * 
-                 * @param {String} columnData.key The internally used column key.
-                 * @param {String} columnData.name The column's header name.
-                 * @param {Boolean} [columnData.show=true] The column's visibility status.
-                 * @param {Boolean} [columnData.sort=true] The column's sorting possibilities.
-                 * @param {String} [columnData.template] A custom template ('column' and 'row' available in $scope).
-                 */
-                var buildColumn = function(columnData) {
-                    return angular.extend({
-                        show: true,
-                        sort: true,
-                    }, columnData);
-                };
-                
-                /**
-                 * Adds a new column to the uxTable.
-                 * 
-                 * @param {Object} columnData The column definition.
-                 * @param {Number} [idx] The index at which the column should be added.
-                 */
-                self.addColumn = function(columnData, idx) {
-                    var column = buildColumn(columnData);
-                    for (var i = 0; i < $scope.columns.length; i++) {
-                        if ($scope.columns[i].key === column.key) {
-                            throw 'Column key already defined: ' + column.key;
-                        }
-                    }
-                    idx = angular.isDefined(idx) ? idx : $scope.columns.length;
-                    $scope.columns.splice(idx, 0, column);
-                    broadcast('uxTable.columnsChanged', $scope.columns);
-                };
-                
-                /**
-                 * Removes a column from the uxTable.
-                 * 
-                 * @param {String} key The column key.
-                 */
-                self.removeColumn = function(key) {
-                    for (var i = 0; i < $scope.columns.length; i++) {
-                        if ($scope.columns[i].key === key) {
-                            $scope.columns.splice(i, 1);
-                            broadcast('uxTable.columnsChanged', $scope.columns);
-                            return;
-                        }
-                    }
-                    throw 'Unknown column key: ' + key;
-                };
-                
-                /**
-                 * Sets the columns for the uxTable.
-                 * 
-                 * @param {Object[]} columnsData The column definitions.
-                 */
-                self.setColumns = function(columnsData) {
-                    var keys = [];
-                    var columns = [];
-                    for (var i = 0; i < columnsData.length; i++) {
-                        var column = buildColumn(columnsData[i]);
-                        if (keys.indexOf(column.key) !== -1) {
-                            throw 'Column key already defined: ' + column.key;
-                        }
-                        keys.push(column.key);
-                        columns.push(column);
-                    }
-                    $scope.columns = columns;
-                    broadcast('uxTable.columnsChanged', $scope.columns);
-                };
-                
-                // ===== Column Visibility
-                
-                self.getVisibility = function(key) {
-                    for (var i = 0; i < $scope.columns.length; i++) {
-                        var column = $scope.columns[i];
-                        if (column.key === key) {
-                            return column.show;
-                        }
-                    }
-                    throw 'Unknown column key: ' + key;
-                };
-                
-                self.setVisibility = function(key, show) {
-                    for (var i = 0; i < $scope.columns.length; i++) {
-                        var column = $scope.columns[i];
-                        if (column.key === key) {
-                            if (column.show !== show) {
-                                column.show = show;
-                                broadcast('uxTable.visibilityChanged', $scope.columns);
-                            }
-                            return;
-                        }
-                    }
-                    throw 'Unknown column key: ' + key;
-                };
-                
-                self.toggleVisibility = function(key) {
-                    if (self.getVisibility(key)) {
-                        self.setVisibility(key, false);
-                    } else {
-                        self.setVisibility(key, true);
-                    }
-                };
-                
-                // ===== Table Sorting
-                
-                self.getSorting = function() {
-                    return $scope.state.orderBy;
-                };
-                
-                self.setSorting = function(key, asc) {
-                    for (var i = 0; i < $scope.columns.length; i++) {
-                        var column = $scope.columns[i];
-                        if (column.key === key) {
-                            if (column.sort) {
-                                if (!$scope.state.orderBy || $scope.state.orderBy.key !== key) {
-                                    $scope.state.orderBy = {
-                                        key: key,
-                                        asc: asc !== false
-                                    };
-                                } else if ($scope.state.orderBy.asc === true) {
-                                    $scope.state.orderBy.asc = false;
-                                } else if ($scope.state.orderBy.asc === false) {
-                                    delete $scope.state.orderBy;
-                                }
-                                broadcast('uxTable.sortingChanged', $scope.state.orderBy);
-                                self.reload();
-                            }
-                            return;
-                        }
-                    }
-                    throw 'Unknown column key: ' + key;
-                };
-                
-                // ===== Table Pagination
-                
-                self.getPage = function() {
-                    return $scope.state.page;
-                };
-                
-                self.setPage = function(page) {
-                    self.setPagination(page, null);
-                };
-                
-                self.getPageSize = function() {
-                    return $scope.state.pageSize;
-                };
-                
-                self.setPageSize = function(pageSize) {
-                    self.setPagination(null, pageSize);
-                };
-                
-                self.getPagination = function() {
-                    return {
-                        page: $scope.state.page,
-                        pageSize: $scope.state.pageSize
-                    };
-                };
-                
-                self.setPagination = function(page, pageSize) {
-                    var reload = false;
-                    if (angular.isNumber(page) && 0 <= page) {
-                        $scope.state.page = page;
-                        reload = true;
-                    }
-                    if (angular.isNumber(pageSize) && 0 < pageSize) {
-                        $scope.state.pageSize = pageSize;
-                        reload = true;
-                    }
-                    if (reload) {
-                        self.reload();
-                    }
-                };
-                
-                // ===== Table Selection
-                
-                $scope.state.selection = [];
-                $scope.$watch('state.selection', function(newVal, oldVal) {
-                    if (newVal !== oldVal) {
-                        broadcast('uxTable.selectionChanged', newVal);
-                    }
-                }, true);
-                
-                self.select = function(items) {
-                    if (angular.isUndefined(items)) { // select page
-                        $scope.state.selection = $scope.content.reduce(function(acc, item) {
-                            var key = item[$scope.cfg.selectionKey];
-                            if ($scope.state.selection.indexOf(key) === -1) {
-                                acc.push(key);
-                            }
-                            return acc;
-                        }, $scope.state.selection);
-                    } else if (angular.isArray(items)) { //select some
-                        $scope.state.selection = items.reduce(function(acc, item) {
-                            var key = angular.isObject(item) ? item[$scope.cfg.selectionKey] : item;
-                            if ($scope.state.selection.indexOf(key) === -1) {
-                                acc.push(key);
-                            }
-                            return acc;
-                        }, $scope.state.selection);
-                    } else { // select one
-                        var key = angular.isObject(items) ? items[$scope.cfg.selectionKey] : items;
-                        var idx = $scope.state.selection.indexOf(key);
-                        if (idx === -1) {
-                            $scope.state.selection.push(key);
-                        }
-                    }
-                };
-                
-                self.deselect = function(items) {
-                    if (angular.isUndefined(items)) { // deselect page
-                        $scope.state.selection = $scope.content.reduce(function(acc, item) {
-                            var key = item[$scope.cfg.selectionKey];
-                            var idx = $scope.state.selection.indexOf(key);
-                            if (idx !== -1) {
-                                $scope.state.selection.splice(idx, 1);
-                            }
-                            return acc;
-                        }, $scope.state.selection);
-                    } else if (angular.isArray(items)) { // deselect some
-                        $scope.state.selection = items.reduce(function(acc, item) {
-                            var key = angular.isObject(item) ? item[$scope.cfg.selectionKey] : item;
-                            var idx = $scope.state.selection.indexOf(key);
-                            if (idx !== -1) {
-                                $scope.state.selection.splice(idx, 1);
-                            }
-                            return acc;
-                        }, $scope.state.selection);
-                    } else { // deselect one
-                        var key = angular.isObject(items) ? items[$scope.cfg.selectionKey] : items;
-                        var idx = $scope.state.selection.indexOf(key);
-                        if (idx !== -1) {
-                            $scope.state.selection.splice(idx, 1);
-                        }
-                    }
-                };
-                
-                self.getSelection = function() {
-                    return $scope.state.selection;
-                };
-                
-                self.setSelection = function(items) {
-                    var selection = [];
-                    for (var i = 0; i < items.length; i++) {
-                        var item = items[i];
-                        var key = angular.isObject(item) ? item[$scope.cfg.selectionKey] : item;
-                        if (selection.indexOf(key) === -1) {
-                            selection.push(key);
-                        }
-                    }
-                    $scope.state.selection = selection;
-                };
-                
-                // ===== Table Filter
-                
-                $scope.state.filters = {};
-                
-                self.getFilters = function() {
-                    return $scope.state.filters;
-                };
-                
-                self.getFilter = function(name) {
-                    return $scope.state.filters[name];
-                };
-                
-                self.setFilter = function(name, filter) {
-                    if (filter) {
-                        $scope.state.filters[name] = filter;
-                    } else {
-                        delete $scope.state.filters[name];
-                    }
-                    self.reload();
-                };
-                
-                // ===== Table Facets
-                
-                $scope.state.facets = {};
-                
-                self.getFacets = function() {
-                    return $scope.state.facets;
-                };
-                
-                self.getFacet = function(name) {
-                    return $scope.state.facets[name];
-                };
-                
-                self.toggleFacet = function(name, term) {
-                    var facet = $scope.state.facets[name];
-                    if (angular.isDefined(facet)) {
-                        for (var i = 0; i < facet.terms.length; i++) {
-                            var termObj = facet.terms[i];
-                            if (termObj.term === term) {
-                                termObj.active = !termObj.active;
-                                self.reload();
-                                return;
-                            }
-                        }
-                    }
-                };
-            }],
-            link: {
-                pre: function($scope, elem, attr, ctrl) {
-                    
-                    // ===== Expose API
-                    if (ctrl[1] !== null) {
-                        ctrl[1].init(ctrl[0], elem);
-                        $scope.$ctrl = ctrl[1];
-                    }
-                },
-                post: function($scope, elem, attr, ctrl) {
-                    var attrCfg = attr.uxTable;
-                    var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
-                    ctrl.cfg = angular.extend(uxTableConf, evalCfg);
-                    
-                    // ===== API Binding | $scope
-                    $scope.cfg = ctrl.cfg;
-                    $scope.sortBy = ctrl[0].setSorting;
-                    
-                    // ===== API Binding | $scope.$parent
-                    var uuid = function() {
-                        var s4 = function() {
-                            return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
-                        };
-                        return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
-                    };
-                    var tableName = $scope.cfg.name || uuid();
-                    $scope.$parent[tableName] = ctrl[0];
-                    
-                    // ===== Initialization
-                    ctrl[0].setColumns($scope.cfg.columns);
-                    ctrl[0].setSource($scope.cfg.source);
-                    ctrl[0].reload();
+            for (var i = 0; i < config.columns.length; i++) {
+                var column = config.columns[i];
+                if (column.key === key) {
+                    column.show = isVisible !== null ? isVisible : !column.show;
+                    return;
                 }
             }
         };
-    }])
+        
+        // ===== Table Row Selection
+        
+        self.prevActive = function() {
+            self.toggleActive(config.active - 1);
+        };
+        
+        self.nextActive = function() {
+            self.toggleActive(config.active + 1);
+        };
+        
+        self.clearActive = function() {
+            self.toggleActive(null);
+        };
+        
+        self.toggleActive = function(idx) {
+            if (idx === null || idx === config.active) {
+                config.active = null;
+            } else if (idx < 0 && config.page > 0) {
+                self.prevPage();
+                config.active = config.pageSize - 1;
+            } else if (idx >= config.pageSize && config.page < config.pageCount - 1) {
+                self.nextPage();
+                config.active = 0;
+            } else if (idx >= 0 && idx < data.length) {
+                config.active = idx;
+            }
+        };
+        
+        self.toggleSelection = function(key) {
+            self.setSelection(key, null);
+        };
+        
+        self.setSelection = function(key, isSelected) {
+            if (angular.isObject(key)) {
+                key = key[config.view.selectionKey];
+            }
+            var idx = config.selection.indexOf(key);
+            if (idx < 0 && isSelected !== false) {
+                config.selection.push(key);
+            } else if (idx >= 0 && isSelected !== true) {
+                config.selection.splice(idx, 1);
+            }
+        };
+        
+        self.setPageSelection = function(isSelected) {
+            for (var i = 0; i < data.length; i++) {
+                var key = data[i][config.view.selectionKey];
+                self.setSelection(key, isSelected);
+            }
+        };
+        
+        self.clearSelection = function() {
+            config.selection = [];
+            $rootScope.$emit('uxTable.configChanged', config);
+        };
+        
+        // ===== Table Facets
+        
+        self.setFilter = function(name, filter) {
+            if (filter) {
+                config.filters[name] = filter;
+            } else {
+                delete config.filters[name];
+            }
+            self.load();
+        };
+        
+        var mergeFacetTerms = function(facetName, facetTerms) {
+            var facet = config.facets.options[facetName];
+            for (var i = 0; i < facetTerms.length; i++) {
+                var term = facetTerms[i];
+                term.active = false;
+                if (angular.isDefined(facet)) {
+                    for (var j = 0; j < facet.terms.length; j++) {
+                        if (facet.terms[j].term === term.term) {
+                            term.active = facet.terms[j].active === true;
+                            break;
+                        }
+                    }
+                }
+            }
+            return facetTerms;
+        };
+        
+        self.setFacets = function(facets) {
+            var result = {};
+            for (var i = 0; i < facets.length; i++) {
+                var facet = facets[i];
+                result[facet.name] = {
+                    type: facet.type,
+                    terms: mergeFacetTerms(facet.name, facet.terms)
+                };
+            }
+            config.facets.options = result;
+        };
+        
+        self.toggleFacet = function(name, term) {
+            var facet = config.facets.options[name];
+            if (angular.isDefined(facet)) {
+                for (var i = 0; i < facet.terms.length; i++) {
+                    var termObj = facet.terms[i];
+                    if (termObj.term === term) {
+                        termObj.active = !termObj.active;
+                        self.load();
+                        return;
+                    }
+                }
+            }
+        };
+        
+        this.load();
+    }
     
-    /**
-     * A uxTable cell. For internal use only.
-     */
-    .directive('uxTableCell', ['$compile', function($compile) {
+    angular.module('mindsmash.uxTable', ['mindsmash.hotkeys'])
+    
+    .provider('UxTableFactory', function UxTableFactoryProvider() {
+        var defaultConfig = {
+            page: 0,
+            pageSize: 10,
+            view: { //TODO: cleanup
+                ngClass: 'ux-table-view table',
+                keyboard: true,
+                selection: true,
+                selectionKey: 'id',
+                rowClick: function(row, idx, api, $event) {
+                    api.toggleActive(idx);
+                }
+            },
+            pagination: {
+                ngClass: 'ux-table-pagination',
+                maxSize: 5,
+                rotate: true,
+                directionLinks: true,
+                previousText: '‹',
+                nextText: '›',
+                boundaryLinks: true,
+                firstText: '«',
+                lastText: '»'
+            },
+            paginationSize: {
+                ngClass: 'ux-table-pagination-size',
+                template: '<span>{{ conf.pageSize }}&nbsp;<span class="caret"></span></span>',
+                closeOnBlur: true,
+                closeOnSelect: false,
+                closeOnDeselect: false,
+                options: [10, 25, 50, 100]
+            },
+            toggle: {
+                ngClass: 'ux-table-toggle',
+                template: '<span><span class="glyphicon glyphicon-th" aria-hidden="true"></span>&nbsp;<span class="caret"></span></span>',
+                closeOnBlur: true,
+                closeOnSelect: false,
+                closeOnDeselect: false,
+            },
+            counter: {
+                ngClass: 'ux-table-counter',
+                template: '<span>{{ conf.page * conf.pageSize + 1 }} &ndash; {{ conf.page * conf.pageSize + conf.count }} of {{ conf.countTotal }}</span>'
+            },
+            selectionCounter: {
+                ngClass: 'ux-table-selection-counter',
+                template: '<span>{{ conf.selection.length }} selected<span ng-show="conf.selection.length"> (<a href="#" ng-click="clear()">clear</a>)</span></span>'
+            },
+            facets: {
+                ngClass: 'ux-table-facets',
+                maxFacetCount: 10,
+                minFacetSize: 2,
+                options: {}
+            },
+            requestConverter: function(config, api) {
+                var params = {
+                    _page: config.page,
+                    _pageSize: config.pageSize
+                };
+                
+                var facets = {};
+                // collect facet options
+                for (var i = 0; i < config.columns.length; i++) {
+                    facets['$' + config.columns[i].key] = [''];
+                }
+                // collect active facets
+                for (var termName in config.facets.options) {
+                    if (config.facets.options.hasOwnProperty(termName)) {
+                        var facet = config.facets.options[termName];
+                        for (var j = 0; j < facet.terms.length; j++) {
+                            var termObj = facet.terms[j];
+                            if (termObj.active) {
+                                facets['$' + termName].push(termObj.term);
+                            }
+                        }
+                    }
+                }
+                
+                return angular.extend(params, facets, config.filters);
+            },
+            responseConverter: function(response, api) {
+                return {
+                    meta: {
+                        page: response.page.number,
+                        pageSize: response.page.size,
+                        pageCount: response.page.totalPages,
+                        count: response.page.numberOfElements,
+                        countTotal: response.page.totalElements,
+                        facets: response.page.facets
+                    },
+                    data: response
+                };
+            }
+        };
+        
+        this.setConfig = function(config) {
+            defaultConfig = config;
+            return this;
+        };
+        
+        this.$get = function($rootScope, $timeout) {
+            return new UxTableFactory($rootScope, $timeout, defaultConfig);
+        };
+    })
+    
+    .directive('uxTableView', function($rootScope, hotkeys, ElementClickListener) {
         return {
-            priority: 0,
+            replace: true,
+            restrict: 'AE',
+            templateUrl: '_uxTableView.hmtl',
+            scope: {
+                api: '&'
+            },
+            controller: function($scope) {
+                this.api = $scope.api();
+            },
+            link: function($scope, elem, attrs, ctrl) {
+                var api = ctrl.api;
+                
+                $scope.conf = {};
+                $scope.rowClick = function(row, idx, $event) {
+                    $scope.conf.view.rowClick(row, idx, api, $event);
+                };
+                
+                var updateConf = function(event, conf) {
+                    $scope.conf = conf;
+                };
+                var updateData = function(event, data) {
+                    $scope.data = data;
+                };
+                
+                hotkeys.bindTo($scope).add({
+                    combo: 'shift+left',
+                    callback: api.firstPage
+                }).add({
+                    combo: 'left',
+                    callback: api.prevPage
+                }).add({
+                    combo: 'right',
+                    callback: api.nextPage
+                }).add({
+                    combo: 'shift+right',
+                    callback: api.lastPage
+                }).add({
+                    combo: 'space',
+                    callback: function($event) {
+                        if ($scope.conf.active !== null) {
+                            $event.preventDefault();
+                            api.toggleSelection($scope.data[$scope.conf.active][$scope.conf.view.selectionKey]);
+                        }
+                    }
+                }).add({
+                    combo: 'return',
+                    callback: function($event) {
+                        if ($scope.conf.active !== null) {
+                            console.log("exe");
+                        }
+                    }
+                }).add({
+                    combo: 'up',
+                    callback: function($event) {
+                        if ($scope.conf.active !== null) {
+                            $event.preventDefault();
+                            api.prevActive();
+                        }
+                    }
+                }).add({
+                    combo: 'down',
+                    callback: function($event) {
+                        if ($scope.conf.active !== null) {
+                            $event.preventDefault();
+                            api.nextActive();
+                        }
+                    }
+                }).add({
+                    combo: 'esc',
+                    callback: function($event) {
+                        if ($scope.conf.active !== null) {
+                            $event.preventDefault();
+                            api.clearActive();
+                        }
+                    }
+                });
+                
+                // register
+                $rootScope.$on('uxTable.configChanged', updateConf);
+                $rootScope.$on('uxTable.dataChanged', updateData);
+                ElementClickListener.register('uxTable.view', elem, api.clearActive, true);
+                // initialize
+                updateConf(null, api.getConfig());
+                updateData(null, api.getData());
+            }
+        };
+    })
+    
+    .directive('uxTablePagination', function($rootScope) {
+        return {
+            replace: true,
+            restrict: 'AE',
+            templateUrl: '_uxTablePagination.hmtl',
+            scope: {
+                api: '&'
+            },
+            link: function($scope, elem, attrs) {
+                var api = $scope.api();
+                
+                $scope.conf = {};
+                $scope.confLocal = {
+                    ngModel: 0,
+                    ngChange: function() {
+                        api.setPage($scope.confLocal.ngModel - 1);
+                    }
+                };
+                
+                var updateConf = function(event, conf) {
+                    $scope.conf = conf;
+                    $scope.confLocal.ngModel = conf.page + 1;
+                };
+                
+                // register
+                $rootScope.$on('uxTable.configChanged', updateConf);
+                // initialize
+                updateConf(null, api.getConfig());
+            }
+        };
+    })
+    
+    .directive('uxTablePaginationSize', function($rootScope, $compile, $filter) {
+        return {
+            replace: true,
+            restrict: 'AE',
+            templateUrl: '_uxTablePaginationSize.hmtl',
+            scope: {
+                api: '&'
+            },
+            link: {
+                pre: function($scope, elem, attrs) {
+                    var api = $scope.api();
+                    
+                    $scope.conf = {};
+                    $scope.confLocal = {
+                        ngModel: null,
+                        options: [],
+                        extraSettings: {
+                            dynamicTitle: false,
+                            displayProp: 'label',
+                            idProp: 'id',
+                            externalIdProp: 'id',
+                            enableSearch: false,
+                            selectionLimit: 1,
+                            showCheckAll: false,
+                            showUncheckAll: false,
+                            groupByTextProvider: angular.noop,
+                            scrollable: true,
+                            scrollableHeight: 'auto',
+                            smartButtonMaxItems: 1,
+                            smartButtonTextConverter: angular.noop
+                        },
+                        events: {
+                            onItemSelect: function(item) {
+                                api.setPagination(0, item.id);
+                            }
+                        }
+                    };
+                    
+                    var updateConf = function(event, conf) {
+                        var options = [];
+                        
+                        for (var i = 0; i < conf.paginationSize.options.length; i++) {
+                            var option = conf.paginationSize.options[i];
+                            options.push({ id: option, label: ('' + option) });
+                        }
+                        if (conf.paginationSize.options.indexOf(conf.pageSize) === -1) {
+                            options.push({ id: conf.pageSize, label: ('' + conf.pageSize) });
+                        }
+                        
+                        $scope.conf = conf;
+                        $scope.confLocal.ngModel = { id: conf.pageSize, label: ('' + conf.pageSize) };
+                        $scope.confLocal.options = $filter('orderBy')(options, 'id');
+                        $scope.confLocal.extraSettings.closeOnBlur = conf.paginationSize.closeOnBlur;
+                        $scope.confLocal.extraSettings.closeOnSelect = conf.paginationSize.closeOnSelect;
+                        $scope.confLocal.extraSettings.closeOnDeselect = conf.paginationSize.closeOnDeselect;
+                        
+                        var template = conf.paginationSize.template;
+                        if (template.indexOf('<') !== 0) {
+                            template = '<span>' + template + '</span>';
+                        }
+                        if (angular.isString(template) && $scope.confLocal.template !== template) {
+                            elem.find('button.dropdown-toggle').html($compile(template)($scope));
+                            $scope.confLocal.template = template;
+                        }
+                    };
+                    
+                    // register
+                    $rootScope.$on('uxTable.configChanged', updateConf);
+                    // initialize
+                    updateConf(null, api.getConfig());
+                }
+            }
+        };
+    })
+    
+    .directive('uxTableToggle', function($rootScope, $compile) {
+        return {
+            replace: true,
+            restrict: 'AE',
+            templateUrl: '_uxTableToggle.hmtl',
+            scope: {
+                api: '&'
+            },
+            link: {
+                pre: function($scope, elem, attrs) {
+                    var api = $scope.api();
+                    
+                    $scope.conf = {};
+                    $scope.confLocal = {
+                        ngModel: [],
+                        options: [],
+                        extraSettings: {
+                            dynamicTitle: false,
+                            displayProp: 'name',
+                            idProp: 'key',
+                            externalIdProp: 'key',
+                            enableSearch: false,
+                            selectionLimit: 0,
+                            showCheckAll: false,
+                            showUncheckAll: false,
+                            groupByTextProvider: angular.noop,
+                            scrollable: true,
+                            scrollableHeight: 'auto',
+                            smartButtonMaxItems: 0,
+                            smartButtonTextConverter: angular.noop
+                        },
+                        events: {
+                            onItemSelect: function(item) {
+                                api.setVisibility(item.key, true);
+                            },
+                            onItemDeselect: function(item) {
+                                if ($scope.confLocal.ngModel.length === 0) {
+                                    $scope.confLocal.ngModel.push(item);
+                                } else {
+                                    api.setVisibility(item.key, false);
+                                }
+                            }
+                        }
+                    };
+                    
+                    var updateConf = function(event, conf) {
+                        var options = [];
+                        var selected = [];
+                        
+                        for (var i = 0; i < conf.columns.length; i++) {
+                            var column = conf.columns[i];
+                            options.push({
+                                key: column.key,
+                                name: column.name
+                            });
+                            if (column.show) {
+                                selected.push({
+                                    key: column.key
+                                });
+                            }
+                        }
+                        
+                        $scope.conf = conf;
+                        $scope.confLocal.ngModel = selected;
+                        $scope.confLocal.options = options;
+                        $scope.confLocal.extraSettings.closeOnBlur = conf.toggle.closeOnBlur;
+                        $scope.confLocal.extraSettings.closeOnSelect = conf.toggle.closeOnSelect;
+                        $scope.confLocal.extraSettings.closeOnDeselect = conf.toggle.closeOnDeselect;
+                        
+                        var template = conf.toggle.template;
+                        if (template.indexOf('<') !== 0) {
+                            template = '<span>' + template + '</span>';
+                        }
+                        if (angular.isString(template) && $scope.confLocal.template !== template) {
+                            elem.find('button.dropdown-toggle').html($compile(template)($scope));
+                            $scope.confLocal.template = template;
+                        }
+                    };
+                    
+                    // register
+                    $rootScope.$on('uxTable.configChanged', updateConf);
+                    // initialize
+                    updateConf(null, api.getConfig());
+                }
+            }
+        };
+    })
+    
+    .directive('uxTableCounter', function($rootScope, $compile) {
+        return {
+            replace: true,
+            restrict: 'AE',
+            templateUrl: '_uxTableCounter.hmtl',
+            scope: {
+                api: '&'
+            },
+            link: function($scope, elem, attrs) {
+                var api = $scope.api();
+                
+                $scope.conf = {};
+                $scope.confLocal = {};
+                var updateConf = function(event, conf) {
+                    $scope.conf = conf;
+                    
+                    var template = conf.counter.template;
+                    if (template.indexOf('<') !== 0) {
+                        template = '<span>' + template + '</span>';
+                    }
+                    if (angular.isString(template) && $scope.confLocal.template !== template) {
+                        elem.html($compile(template)($scope));
+                        $scope.confLocal.template = template;
+                    }
+                };
+                
+                // register
+                $rootScope.$on('uxTable.configChanged', updateConf);
+                // initialize
+                updateConf(null, api.getConfig());
+            }
+        };
+    })
+    
+    .directive('uxTableSelectionCounter', function($rootScope, $compile) {
+        return {
+            replace: true,
+            restrict: 'AE',
+            templateUrl: '_uxTableSelectionCounter.hmtl',
+            scope: {
+                api: '&'
+            },
+            link: function($scope, elem, attrs) {
+                var api = $scope.api();
+                
+                $scope.conf = {};
+                $scope.confLocal = {};
+                var updateConf = function(event, conf) {
+                    $scope.conf = conf;
+                    
+                    var template = conf.selectionCounter.template;
+                    if (template.indexOf('<') !== 0) {
+                        template = '<span>' + template + '</span>';
+                    }
+                    if (angular.isString(template) && $scope.confLocal.template !== template) {
+                        elem.html($compile(template)($scope));
+                        $scope.confLocal.template = template;
+                    }
+                };
+                
+                $scope.clear = function() {
+                   api.clearSelection(); 
+                };
+                
+                // register
+                $rootScope.$on('uxTable.configChanged', updateConf);
+                // initialize
+                updateConf(null, api.getConfig());
+            }
+        };
+    })
+    
+    .directive('uxTableFacets', function($rootScope) {
+        return {
+            replace: true,
+            restrict: 'AE',
+            templateUrl: '_uxTableFacets.hmtl',
+            scope: {
+                api: '&'
+            },
+            link: function($scope, elem, attr) {
+                var api = $scope.api();
+                
+                $scope.conf = {};
+                var updateConf = function(event, conf) {
+                    $scope.conf = conf;
+                };
+                
+                $scope.setFilter = function(key, value) {
+                    api.setFilter(key, value);
+                };
+                $scope.toggleFacet = function(key, value) {
+                    api.toggleFacet(key, value);
+                };
+                
+                // register
+                $rootScope.$on('uxTable.configChanged', updateConf);
+                // initialize
+                updateConf(null, api.getConfig());
+            }
+        };
+    })
+    
+    // ===== INTERNAL
+    
+    .directive('uxTableCell', function($compile) {
+        return {
             scope: false,
-            require: '^uxTable',
-            link: function($scope, elem, attr, ctrl) {
+            require: '^uxTableView',
+            link: function($scope, elem, attrs) {
                 var template = $scope.column.template;
                 if (angular.isString(template)) {
                     elem.html($compile(template)($scope));
                 }
             }
         };
-    }])
+    })
     
-    /**
-     * A uxTable row selector. For internal use only.
-     */
-    .directive('uxTableSelection', ['$timeout', function($timeout) {
+    .directive('uxTableSelection', function($timeout) {
         return {
-            priority: 0,
             replace: true,
-            require: '^uxTable',
+            require: '^uxTableView',
             scope: {
-                content: '=',
+                api: '&',
+                data: '=',
                 selection: '=',
                 selectionKey: '='
             },
             link: function($scope, elem, attrs, ctrl) {
+                var api = ctrl.api;
                 
                 var updateState = function(newVal, oldVal) {
                     if (newVal === oldVal) { return; }
                     var numberOfItemsSelected = 0;
-                    for (var i = 0; i < $scope.content.length; i++) {
-                        if ($scope.selection.indexOf($scope.content[i][$scope.selectionKey]) !== -1) {
+                    for (var i = 0; i < $scope.data.length; i++) {
+                        if ($scope.selection.indexOf($scope.data[i][$scope.selectionKey]) !== -1) {
                             numberOfItemsSelected += 1;
                         }
                     }
                     switch (numberOfItemsSelected) {
                         case 0: // none selected
                             elem.prop('checked', false).prop('indeterminate', false); break;
-                        case $scope.content.length: // all selected
+                        case $scope.data.length: // all selected
                             elem.prop('checked', true).prop('indeterminate', false); break;
                         default: // some selected
                             elem.prop('checked', false).prop('indeterminate', true);
                     }
                 };
-                $scope.$watch('content', updateState, true);
+                $scope.$watch('data', updateState, true);
                 $scope.$watch('selection', updateState, true);
                 
                 elem.bind('change', function() {
                     $timeout(function() {
                         if(elem.prop('checked')) {
-                            ctrl.select($scope.content);
+                            api.setPageSelection(true);
                         } else {
-                            ctrl.deselect($scope.content);
+                            api.setPageSelection(false);
                         }
                     });
-                });
-            }
-        };
-    }])
-    
-    /**
-     * A uxTable pagination handler.
-     * 
-     * @param {Number} [uxTablePagination.maxSize=5] Limit number for pagination size.
-     * @param {Boolean} [uxTablePagination.rotate=true] Whether to keep current page in the middle of the visible ones.
-     * @param {Boolean} [uxTablePagination.directionLinks=true] Whether to display Previous / Next buttons.
-     * @param {String} [uxTablePagination.previousText='‹'] Text for Previous button.
-     * @param {String} [uxTablePagination.nextText='›'] Text for Next button.
-     * @param {Boolean} [uxTablePagination.boundaryLinks=true] Whether to display First / Last buttons.
-     * @param {String} [uxTablePagination.firstText='«'] Text for First button.
-     * @param {String} [uxTablePagination.lastText='»'] Text for Last button.
-     */
-    .directive('uxTablePagination', function() {
-        return {
-            priority: 0,
-            scope: true,
-            replace: true,
-            restrict: 'A',
-            require: '^uxTableScope',
-            templateUrl: '_uxTablePagination.html',
-            link: function($scope, elem, attr, ctrl) {
-                var attrCfg = attr.uxTablePagination;
-                var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
-                
-                $scope.cfg = angular.extend({
-                    maxSize: 5,
-                    rotate: true,
-                    directionLinks: true,
-                    previousText: '‹',
-                    nextText: '›',
-                    boundaryLinks: true,
-                    firstText: '«',
-                    lastText: '»',
-                }, evalCfg, {
-                    isInit: false,
-                    ngModel: 0,
-                    totalItems: 0,
-                    itemsPerPage: 0,
-                    ngChange: function() {
-                        if (ctrl.$isInit) {
-                            ctrl.$tableCtrl.setPagination($scope.cfg.ngModel - 1, null);
-                        }
-                    }
-                });
-                
-                $scope.$on('uxTable.paginationChanged', function(event, pagination) {
-                    $scope.cfg.ngModel = pagination.page + 1;
-                    $scope.cfg.totalItems = pagination.countTotal;
-                    $scope.cfg.itemsPerPage = pagination.pageSize;
-                    $scope.cfg.isInit = true;
                 });
             }
         };
     })
     
-    /**
-     * A uxTable page size chooser.
-     * 
-     * @param {Boolean} [uxTablePaginationSize.closeOnBlur=true] Close the column chooser on blur.
-     * @param {String} [uxTablePaginationSize.buttonClasses='btn btn-default'] The button's CSS classes.
-     */
-    .directive('uxTablePaginationSize', function() {
-        return {
-            priority: 0,
-            scope: true,
-            replace: true,
-            restrict: 'A',
-            require: '^uxTableScope',
-            templateUrl: '_uxTablePaginationSize.html',
-            link: {
-                pre: function($scope, elem, attr, ctrl) {
-                    var attrCfg = attr.uxTablePaginationSize;
-                    var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
-                    
-                    $scope.cfg = angular.extend({
-                        closeOnBlur: true,
-                        buttonClasses: 'btn btn-default'
-                    }, evalCfg, {
-                        dynamicTitle: true,
-                        displayProp: 'label',
-                        idProp: 'id',
-                        externalIdProp: 'id',
-                        enableSearch: false,
-                        selectionLimit: 1,
-                        showCheckAll: false,
-                        showUncheckAll: false,
-                        closeOnSelect: true,
-                        closeOnDeselect: true,
-                        groupByTextProvider: angular.noop,
-                        scrollable: true,
-                        scrollableHeight: 'auto',
-                        smartButtonMaxItems: 1,
-                        smartButtonTextConverter: angular.noop,
-                        options: [
-                            { id: 10, label: '10' },
-                            { id: 25, label: '25' },
-                            { id: 50, label: '50' },
-                            { id: 100, label: '100' }],
-                        events: {
-                            onItemSelect: function(item) {
-                                if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.setPagination(0, item.id);
-                                }
-                            }
-                        },
-                        isInit: false
-                    });
-                    
-                    $scope.ngModel = { id: 0 };
-                    $scope.$on('uxTable.paginationChanged', function(event, pagination) {
-                        if (!_.some($scope.cfg.options, 'id', pagination.pageSize)) {
-                            var idx = _.findIndex($scope.cfg.options, function(option) {
-                                return option.id > pagination.pageSize;
-                            });
-                            idx = idx < 0 ? $scope.cfg.options.length : idx;
-                            $scope.cfg.options.splice(idx, 0, { id: pagination.pageSize, label: '' + pagination.pageSize });
-                        }
-                        $scope.ngModel = { id: pagination.pageSize };
-                        $scope.cfg.isInit = true;
-                    });
+    .factory('ElementClickListener', function($window, $timeout) {
+        var listeners = {};
+        var window = angular.element($window);
+        
+        var isTarget = function(targetElem, targetClick) {
+            while(targetClick.length !== 0) {
+                if (targetClick[0] === targetElem[0]) {
+                    return true;
                 }
+                targetClick = targetClick.parent();
             }
+            return false;
         };
-    })
-    
-    /**
-     * Displays the number of elements currently selected in the uxTable.
-     * 
-     * @param {String|false} [uxTableSelectionCounter.i18n=false] A $translate key to be used (uxTable selection available in $scope).
-     * @param {String} [uxTableSelectionCounter.template='{{ from }} – {{ to }} of {{ total }}'] A custom template (uxTable selection available in $scope).
-     */
-    .directive('uxTableSelectionCounter', ['$compile', function($compile) {
-        return {
-            priority: 0,
-            scope: true,
-            replace: true,
-            restrict: 'A',
-            require: '^uxTableScope',
-            templateUrl: '_uxTableSelectionCounter.html',
-            link: function($scope, elem, attr, ctrl) {
-                var attrCfg = attr.uxTableSelectionCounter;
-                var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
-                
-                $scope.cfg = angular.extend({
-                    i18n: false,
-                    template: '<span ng-show=\"selectionSize\">{{ selectionSize }} selected (<a href="#" ng-click="resetSelection()">clear</a>)</span>'
-                }, evalCfg);
-                
-                if (!angular.isString($scope.cfg.i18n)) {
-                    elem.html($compile($scope.cfg.template)($scope));
-                }
-                
-                $scope.resetSelection = function() {
-                    ctrl.$tableCtrl.setSelection([]);
-                };
-                
-                var selectionChanged = function(event, selection) {
-                    var selectionData = {
-                        selectionKeys: selection,
-                        selectionSize: selection.length
-                    };
-                    if (angular.isString($scope.cfg.i18n)) {
-                        $scope.selection = selectionData;
+        
+        window.on('click', function($event) {
+            for (var key in listeners) {
+                if (listeners.hasOwnProperty(key)) {
+                    var listener = listeners[key];
+                    var targetElem = listener.element;
+                    var targetClick = angular.element($event.target);
+                    if (isTarget(targetElem, targetClick)) {
+                        if (!listener.inverse) {
+                            $timeout(listener.callback);
+                        }
                     } else {
-                        angular.extend($scope, selectionData);
-                    }
-                };
-                
-                selectionChanged(null, []); // init
-                $scope.$on('uxTable.selectionChanged', selectionChanged);
-            }
-        };
-    }])
-    
-    /**
-     * Displays the number of elements currently visible in the uxTable.
-     * 
-     * @param {String|false} [uxTableCounter.i18n=false] A $translate key to be used (uxTable pagination state available in $scope).
-     * @param {String} [uxTableCounter.template='{{ from }} – {{ to }} of {{ total }}'] A custom template (uxTable pagination state available in $scope).
-     */
-    .directive('uxTableCounter', ['$compile', function($compile) {
-        return {
-            priority: 0,
-            scope: true,
-            replace: true,
-            restrict: 'A',
-            require: '^uxTableScope',
-            templateUrl: '_uxTableCounter.html',
-            link: function($scope, elem, attr, ctrl) {
-                var attrCfg = attr.uxTableCounter;
-                var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
-                
-                $scope.cfg = angular.extend({
-                    i18n: false,
-                    template: '<span>{{ page * pageSize + 1 }} &ndash; {{ page * pageSize + count }} of {{ countTotal }}</span>'
-                }, evalCfg, {
-                    isInit: false
-                });
-                
-                if (!angular.isString($scope.cfg.i18n)) {
-                    elem.html($compile($scope.cfg.template)($scope));
-                }
-                
-                $scope.$on('uxTable.paginationChanged', function(event, pagination) {
-                    if (angular.isString($scope.cfg.i18n)) {
-                        $scope.pagination = pagination;
-                    } else {
-                        angular.extend($scope, pagination);
-                    }
-                    $scope.isInit = true;
-                });
-            }
-        };
-    }])
-    
-    /**
-     * A uxTable column chooser.
-     * 
-     * @param {Boolean} [uxTableToggle.closeOnBlur=true] Close the column chooser on blur.
-     * @param {String} [uxTableToggle.buttonClasses='btn btn-default'] The button's CSS classes.
-     * @param {String} [uxTableToggle.icon='zmdi zmdi-view-column'] The button's icon.
-     * @param {Boolean} [uxTableToggle.caret=true] Show the button's dropdown caret.
-     */
-    .directive('uxTableToggle', ['$q', '$timeout', '$translate', function($q, $timeout, $translate) {
-        return {
-            priority: 0,
-            scope: true,
-            replace: true,
-            restrict: 'A',
-            require: '^uxTableScope',
-            templateUrl: '_uxTableToggle.html',
-            link: {
-                pre: function($scope, elem, attr, ctrl) {
-                    var attrCfg = attr.uxTableToggle;
-                    var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
-                    
-                    $scope.cfg = angular.extend({
-                        closeOnBlur: true,
-                        buttonClasses: 'btn btn-default',
-                        icon: 'zmdi zmdi-view-column',
-                        caret: true
-                    }, evalCfg, {
-                        dynamicTitle: false,
-                        displayProp: 'name',
-                        idProp: 'key',
-                        externalIdProp: 'key',
-                        enableSearch: false,
-                        selectionLimit: 0,
-                        showCheckAll: false,
-                        showUncheckAll: false,
-                        closeOnSelect: false,
-                        closeOnDeselect: false,
-                        groupByTextProvider: angular.noop,
-                        scrollable: true,
-                        scrollableHeight: 'auto',
-                        smartButtonMaxItems: 0,
-                        smartButtonTextConverter: angular.noop,
-                        options: [],
-                        events: {
-                            onItemSelect: function(item) {
-                                if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.toggleVisibility(item.key, true);
-                                }
-                            },
-                            onItemDeselect: function(item) {
-                                if ($scope.ngModel.length === 0) {
-                                    $scope.ngModel.push(item);
-                                } else if (ctrl.$isInit) {
-                                    ctrl.$tableCtrl.toggleVisibility(item.key, false);
-                                }
-                            }
-                        },
-                        isInit: false
-                    });
-                    
-                    $scope.ngModel = [];
-                    $scope.$on('uxTable.columnsChanged', function(event, columns) {
-                        $scope.cfg.options = [];
-                        
-                        var deferred = $q.defer();
-                        deferred.resolve([]);
-                        var promise = deferred.promise;
-                        
-                        var fn = function(option, options) {
-                            if (angular.isString(option.i18n)) {
-                                return $translate(option.i18n).then(function(text) {
-                                    option.name = text;
-                                    delete option.i18n;
-                                    options.push(option);
-                                    return options;
-                                });
-                            } else {
-                                options.push(option);
-                                var deferred = $q.defer();
-                                deferred.resolve(options);
-                                return deferred.promise;
-                            }
-                        };
-                        
-                        for (var i = 0; i < columns.length; i++) {
-                            var option = _.pick(columns[i], 'key', 'name', 'i18n');
-                            promise = promise.then(_.bind(fn, this, option));
+                        if (listener.inverse) {
+                            $timeout(listener.callback);
                         }
-                        
-                        promise.then(function(options) {
-                            $scope.cfg.options = options;
-                        });
-                        
-                        var selected = [];
-                        for (var x = 0; x < columns.length; x++) {
-                            if (columns[x].show) {
-                                selected.push({ key: columns[x].key });
-                            }
-                        }
-                        
-                        $scope.ngModel = selected;
-                        $scope.cfg.isInit = true;
-                    });
-                },
-                post: function($scope, elem, attr, ctrl) {
-                    var html = '<i class="' + $scope.cfg.icon + '"></i>';
-                    if ($scope.cfg.caret) {
-                        html += '&nbsp;<span class="caret"></span>';
                     }
-                    elem.find('button').html(html);
                 }
             }
-        };
-    }])
-    
-    .directive('uxTableFacets', [function() {
+        });
+        
         return {
-            priority: 0,
-            scope: true,
-            restrict: 'A',
-            require: '^uxTableScope',
-            templateUrl: '_uxTableFacets.html',
-            link: function($scope, elem, attr, ctrl) {
-                var attrCfg = attr.uxTableFacets;
-                var evalCfg = angular.isDefined(attrCfg) ? $scope.$parent.$eval(attrCfg) : {};
-                
-                $scope.cfg = angular.extend({
-                    caret: true
-                }, evalCfg, {
-                    isInit: false
-                });
-                
-                $scope.setFilter = function(key, value) {
-                    if (angular.isDefined(ctrl.$tableCtrl)) {
-                        ctrl.$tableCtrl.setFilter(key, value);
-                    }
+            register: function(key, element, callback, inverse) {
+                listeners[key] = {
+                    element: angular.element(element),
+                    callback: callback,
+                    inverse: inverse
                 };
-                $scope.toggleFacet = function(key, value) {
-                    if (angular.isDefined(ctrl.$tableCtrl)) {
-                        ctrl.$tableCtrl.toggleFacet(key, value);
-                    }
-                };
-                
-                function update(event, columns) {
-                    $scope.cfg.isInit = true;
-                    $scope.cfg.columns = columns;
-                    console.log(columns);
-                    
-                }
-                
-                $scope.$on('uxTable.columnsChanged', update);
-                $scope.$on('uxTable.visibilityChanged', update);
-                $scope.$on('uxTable.facetsChanged', function(e, facets) {
-                    $scope.cfg.isInit = true;
-                    $scope.cfg.facets = facets;
-                });
+            },
+            deregister: function(key) {
+                delete listeners[key];
             }
         };
-    }]);
+    });
+    
 })(angular);

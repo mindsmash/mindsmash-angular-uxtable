@@ -1,8 +1,8 @@
-<div class="ux-table-pagination-size" ng-show="cfg.isInit">
+<div ng-class="conf.paginationSize.ngClass">
     <ng-dropdown-multiselect
-        selected-model="ngModel"
-        options="cfg.options"
-        extra-settings="cfg"
-        events="cfg.events">
+        selected-model="confLocal.ngModel"
+        options="confLocal.options"
+        extra-settings="confLocal.extraSettings"
+        events="confLocal.events">
     </ng-dropdown-multiselect>
 </div>
