@@ -30,13 +30,13 @@
             });
         };
         
-        var config = angular.extend({
+        var config = angular.extend(angular.extend({
             source: angular.noop,
             columns: [],
             selection: [],
             active: null,
             filters: {}
-        }, tableConfig);
+        }, tableConfig), loadConfig());
         
         // TODO: cleanup
         // normalize columns
@@ -62,6 +62,7 @@
                     self.setFacets(facets);
                     data = converted.data;
                     $rootScope.$emit('uxTable.dataChanged', data);
+                    $rootScope.$emit('uxTable.configChanged', config);
                 });
             });
         };
@@ -493,7 +494,7 @@
         };
     })
     
-    .directive('uxTablePagination', function($rootScope) {
+    .directive('uxTablePagination', function($rootScope, $timeout) {
         return {
             replace: true,
             restrict: 'AE',
@@ -501,20 +502,62 @@
             scope: {
                 api: '&'
             },
-            link: function($scope, elem, attrs) {
+            controller: function($scope){
                 var api = $scope.api();
-                
+
                 $scope.conf = {};
-                $scope.confLocal = {
-                    ngModel: 0,
-                    ngChange: function() {
-                        api.setPage($scope.confLocal.ngModel - 1);
-                    }
+
+                $scope.current = {
+                    page: 0
                 };
-                
+
+                $scope.hasPrevious = function(page){
+                    page = !page ? $scope.current.page : page;
+                    return page > 1;
+                };
+
+                $scope.hasNext = function(page){
+                    page = !page ? $scope.current.page : page;
+                    return (page < $scope.conf.pageCount);  
+                };
+
+                $scope.selectPage = function(page, event){
+                    if(page >= 1 && page <= $scope.conf.pageCount){
+                        api.setPage(page - 1);
+                    }
+                }; 
+            },
+            link: function($scope, elem, attrs) {
+                var api = $scope.api();                
+                var createPagesArray = function(from, to){
+                    var pages = [];
+                    for (var i = from; i <= to; i++) {
+                        pages.push({
+                            number: i,
+                            active: $scope.current.page == i
+                        });
+                    }
+                    return pages;
+                };
+
+                var getPages = function(conf){
+                    var start = 1;
+                    var end = conf.pageCount;
+                    if((end - start) > (conf.pagination.maxSize - 1)){
+                        start = ($scope.current.page - Math.floor((conf.pagination.maxSize - 1) / 2) > 0) ? $scope.current.page - Math.floor((conf.pagination.maxSize - 1) / 2) : 1;
+                        end = start + (conf.pagination.maxSize - 1);
+                        if(end > conf.pageCount){
+                            end = conf.pageCount;
+                            start = end - (conf.pagination.maxSize - 1);
+                        }
+                    }
+                    return createPagesArray(start, end);
+                };
+
                 var updateConf = function(event, conf) {
                     $scope.conf = conf;
-                    $scope.confLocal.ngModel = conf.page + 1;
+                    $scope.current.page = conf.page + 1;
+                    $scope.pages = getPages(conf);
                 };
                 
                 // register
