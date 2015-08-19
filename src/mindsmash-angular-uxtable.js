@@ -28,7 +28,8 @@
                 page: config.page,
                 pageSize: config.pageSize,
                 orderBy: config.orderBy,
-                columns: config.columns
+                columns: config.columns,
+                filters: config.filters
             });
         };
         
@@ -205,6 +206,7 @@
             } else {
                 delete config.filters[name];
             }
+            saveConfig();
             self.load();
         };
         
@@ -823,6 +825,10 @@
                     $scope.conf = conf;
                 };
                 
+                $scope.getFilter = function(key){
+                    return $scope.conf.filters[key];
+                };
+
                 $scope.setFilter = function(key, value) {
                     api.setFilter(key, value);
                 };
