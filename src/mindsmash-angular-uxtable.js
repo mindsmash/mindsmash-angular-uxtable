@@ -27,6 +27,8 @@
             sessionStorage[storageKey] = JSON.stringify({
                 page: config.page,
                 pageSize: config.pageSize,
+                orderBy: config.orderBy,
+                columns: config.columns
             });
         };
         
@@ -133,6 +135,7 @@
                 var column = config.columns[i];
                 if (column.key === key) {
                     column.show = isVisible !== null ? isVisible : !column.show;
+                    saveConfig();
                     return;
                 }
             }
@@ -269,6 +272,7 @@
                         } else if (config.orderBy.asc === false) {
                             delete config.orderBy;
                         }
+                        saveConfig();
                         $rootScope.$emit('uxTable.configChanged', config);
                         self.load();
                     }
