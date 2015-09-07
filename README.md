@@ -19,6 +19,7 @@ Yet another data table for AngularJS. **This library is work in progress.**
       - [Sorting](#43-sorting)
       - [Pagnation](#44-pagination)
       - [Selection](#45-selection)
+      - [Filters & Facets](#46-filters--facets)
 
 ### 1. Installation:
 
@@ -126,6 +127,19 @@ Yet another data table for AngularJS. **This library is work in progress.**
 * `getSelection()` - Returns the current table selection keys.
 * `setSelection()` - Resets the current table selection.
   * `{Array|Object} items`: The new table selection. This can either be a list of table rows (or table row keys).
+
+**[Back to top](#table-of-contents)**
+
+#### 4.6 Filters & Facets
+
+* `getFilter(key)` - Returns the current filter for this column.
+  * `{String} key`: The column key.
+* `setFilter(key, filter)` - Sets the filter term for this column.
+  * `{String} key`: The column key.
+  * `{String} filter`: The filter term.
+* `clearFilter(key)` - Removes the current filter (if any) for this column.
+  * `{String} key`: The column key.
+* `clearFilters()` - Removes any filters (if any).
 
 **[Back to top](#table-of-contents)**
 
