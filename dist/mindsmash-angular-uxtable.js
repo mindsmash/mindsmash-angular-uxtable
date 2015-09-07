@@ -452,10 +452,10 @@
                 api: '&'
             },
             controller: ['$scope', function($scope) {
-                // Do not remove, so it can be required.
+                this.api = $scope.api();
             }],
-            link: function($scope, elem, attrs) {
-                var api = $scope.api();
+            link: function($scope, elem, attrs, ctrl) {
+                var api = ctrl.api;
                 
                 $scope.conf = {};
                 $scope.sortBy = api.setSorting;
@@ -901,7 +901,6 @@
             replace: true,
             require: '^uxTableView',
             scope: {
-                api: '&',
                 data: '=',
                 selection: '=',
                 selectionKey: '='

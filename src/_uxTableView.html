@@ -1,7 +1,7 @@
 <table ng-class="conf.view.ngClass">
 	<thead>
 		<tr>
-			<th ng-if="conf.view.selection" class="ux-table-selection"><input type="checkbox" ux-table-selection api="" data="data" selection="conf.selection" selection-key="conf.view.selectionKey"></th>
+			<th ng-if="conf.view.selection" class="ux-table-selection"><input type="checkbox" ux-table-selection data="data" selection="conf.selection" selection-key="conf.view.selectionKey"></th>
 			<th
 				ng-repeat="column in conf.columns | filter : { show: true }"
 				ng-click="sortBy(column.key)"
