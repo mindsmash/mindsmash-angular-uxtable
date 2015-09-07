@@ -125,4 +125,5 @@ Upcoming...
 
 ## Contributors
 
-   * Fynn Feldpausch, mindsmash GmbH
+   * Fynn Feldpausch @ [mindsmash GmbH](https://www.mindsmash.com/)
+   * Piers Wermbter @ [mindsmash GmbH](https://www.mindsmash.com/)
