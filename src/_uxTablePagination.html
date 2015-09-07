@@ -1,4 +1,4 @@
-<div ng-show="conf.pageCount > 1">
+<div ng-class="conf.pagination.ngClass" ng-show="conf.pageCount > 1">
     <ul class="pagination">
         <li ng-class="{disabled: (!hasPrevious() || !conf.pagination.boundaryLinks)}" class="pagination-first"><a href ng-click="selectPage(1, $event)">{{conf.pagination.firstText}}</a></li>
         <li ng-class="{disabled: (!hasPrevious() || !conf.pagination.directionLinks)}" class="pagination-prev"><a href ng-click="selectPage(current.page - 1, $event)">{{conf.pagination.previousText}}</a></li>
