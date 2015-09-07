@@ -14,7 +14,15 @@
     function UxTable($rootScope, $timeout, tableName, tableConfig) {
         var self = this;
         
-        // ===== Table Configuration
+        self.getConfig = function() {
+            return config;
+        };
+        
+        self.getData = function() {
+            return data;
+        };
+        
+        // ===== Table Configuration & Session Storage
         
         var storageKey = 'uxTable.' + tableName;
         
@@ -41,16 +49,19 @@
             filters: {}
         }, tableConfig), loadConfig());
         
-        // TODO: cleanup
         // normalize columns
         for (var i = 0; i < config.columns.length; i++) {
             config.columns[i] = angular.extend({
-                show: true,
-                sort: true,
-                filter: true,
-                facets: false
+                name: '',
+                show: true, // is the column visible?
+                sticky: false, // can the visibility status be toggled?
+                sort: true, // is the column sortable?
+                filter: true, // is the column filterable?
+                facets: false // are facets enabled?
             }, config.columns[i]);
         }
+        
+        // ===== Table Data & Reloading
         
         var data = [];
         
@@ -70,16 +81,19 @@
             });
         };
         
-        self.getConfig = function() {
-            return config;
-        };
-        
-        self.getData = function() {
-            return data;
-        };
-        
-        
         // ===== Table Pagination
+        
+        self.getPage = function() {
+            return config.page;
+        };
+        
+        self.getPageSize = function() {
+            return config.pageSize;
+        };
+        
+        self.setPage = function(page) {
+            self.setPagination(page, null);
+        };
         
         self.firstPage = function() {
             self.setPagination(0, null);
@@ -95,10 +109,6 @@
         
         self.lastPage = function() {
             self.setPagination(config.pageCount - 1, null);
-        };
-        
-        self.setPage = function(page) {
-            self.setPagination(page, null);
         };
         
         self.setPageSize = function(pageSize) {
@@ -124,6 +134,16 @@
         
         // ===== Table Column Toggle
         
+        self.getVisibility = function(key) {
+            for (var i = 0; i < config.columns.length; i++) {
+                var column = config.columns[i];
+                if (column.key === key) {
+                    return column.show;
+                }
+            }
+            return null;
+        };
+        
         self.toggleVisibility = function(key) {
             self.setVisibility(key, null);
         };
@@ -135,8 +155,10 @@
             for (var i = 0; i < config.columns.length; i++) {
                 var column = config.columns[i];
                 if (column.key === key) {
-                    column.show = isVisible !== null ? isVisible : !column.show;
-                    saveConfig();
+                    if (!column.sticky) {
+                        column.show = isVisible !== null ? isVisible : !column.show;
+                        saveConfig();
+                    }
                     return;
                 }
             }
@@ -198,16 +220,28 @@
             $rootScope.$emit('uxTable.configChanged', config);
         };
         
-        // ===== Table Facets
+        // ===== Table Filter & Facets
         
-        self.setFilter = function(name, filter) {
+        self.getFilter = function(key) {
+            return config.filters[key];
+        };
+        
+        self.setFilter = function(key, filter) {
             if (filter) {
-                config.filters[name] = filter;
+                config.filters[key] = filter;
             } else {
-                delete config.filters[name];
+                delete config.filters[key];
             }
             saveConfig();
             self.load();
+        };
+        
+        self.clearFilter = function(key) {
+            self.setFilter(key, null);
+        };
+        
+        self.clearFilters = function() {
+            config.filters = {};
         };
         
         var mergeFacetTerms = function(facetName, facetTerms) {
@@ -283,7 +317,7 @@
             }
         };
         
-        
+        // ===== Load Initial Table Data
         
         this.load();
     }
@@ -418,10 +452,10 @@
                 api: '&'
             },
             controller: function($scope) {
-                this.api = $scope.api();
+                // Do not remove, so it can be required.
             },
-            link: function($scope, elem, attrs, ctrl) {
-                var api = ctrl.api;
+            link: function($scope, elem, attrs) {
+                var api = $scope.api();
                 
                 $scope.conf = {};
                 $scope.sortBy = api.setSorting;
@@ -460,6 +494,7 @@
                     combo: 'return',
                     callback: function($event) {
                         if ($scope.conf.active !== null) {
+                            $event.preventDefault();
                             console.log("exe");
                         }
                     }
@@ -700,14 +735,16 @@
                         
                         for (var i = 0; i < conf.columns.length; i++) {
                             var column = conf.columns[i];
-                            options.push({
-                                key: column.key,
-                                name: column.name
-                            });
-                            if (column.show) {
-                                selected.push({
-                                    key: column.key
+                            if (!column.sticky) {
+                                options.push({
+                                    key: column.key,
+                                    name: column.name
                                 });
+                                if (column.show) {
+                                    selected.push({
+                                        key: column.key
+                                    });
+                                }
                             }
                         }
                         
