@@ -96,6 +96,10 @@ Yet another data table for AngularJS. **This library is work in progress.**
 * `getPageSize()` - Returns the current page size.
 * `setPage(page)` - Sets the page to *page*. This is short for `setPagination(page, null)`.
   * `{Number} page`: The new page.
+* `firstPage()` - Sets the page to the first page.
+* `prevPage()` - Sets the page to the previous page (if available).
+* `nextPage()` - Sets the page to the next page (if available).
+* `lastPage()` - Sets the page to the last page.
 * `setPageSize(pageSize)` - Sets the page size to *pageSize*. This is short for `setPagination(null, pageSize)`.
   * `{Number} pageSize`: The new page size.
 * `getPagination()` - Returns the current page and page size.
