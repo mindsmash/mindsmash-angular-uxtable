@@ -11,14 +11,14 @@ Yet another data table for AngularJS. **This library is work in progress.**
 ### Table of Contents
 
    - [Installation](#1-installation)
-   - [Configuration](#2-configuration)
-   - [Scope & Directives](#3-scope--directives)
+   - [Configuration & Initialization](#2-configuration--initialization)
+   - [Directives](#3-directives)
    - [API](#4-api)
       - [Column Definition](#41-column-definition)
       - [Column Visibility](#42-column-visibility)
       - [Sorting](#43-sorting)
       - [Pagnation](#44-pagination)
-      - [Selection](#45-selection)
+      - [Selection & Active Column](#45-selection--active-column)
       - [Filters & Facets](#46-filters--facets)
 
 ### 1. Installation:
@@ -40,41 +40,21 @@ Yet another data table for AngularJS. **This library is work in progress.**
 
 **[Back to top](#table-of-contents)**
 
-### 2. Configuration
+### 2. Configuration & Initialization
 
-```
-{
-    tableClass: 'table',
-    requestConverter: function(state) {
-        // The result of the evaluation must be a plain object containing the
-        // current request parameters. These are _page, _pageSize and _orderBy.
-    },
-    responseConverter: function(data) {
-        // The result of the evaluation must be an object containing the new
-        // table content (JSON array) and the new table state (incl. count,
-        // countTotal, page, pageSize).
-    },
-    rowClass: function(rowData, rowIndex) {
-        // The result of the evaluation can be a string representing space
-        // delimited class names, an array, or a map of class names to boolean
-        // values. In the case of a map, the names of the properties whose
-        // values are truthy will be added as css classes to the element.
-    },
-    rowClick: function(rowData, rowIndex, $event) {
-        // Handle the row click event.
-    }
-}
-```
+TODO...
 
 **[Back to top](#table-of-contents)**
 
-### 3. Scope & Directives
+### 3. Directives
 
 **[Back to top](#table-of-contents)**
 
 ### 4. API
 
 #### 4.1 Column Definition
+
+Upcoming...
 
 **[Back to top](#table-of-contents)**
 
@@ -118,7 +98,7 @@ Yet another data table for AngularJS. **This library is work in progress.**
 
 **[Back to top](#table-of-contents)**
 
-#### 4.5 Selection
+#### 4.5 Selection & Active Column
 
 * `select()` - Select one or more table rows.
   * `{String|Array|Object} items`: The items to be selected in the table. This can either be a single table row (or table row key) or a list of table rows (or table row keys). If no argument is present, all items *of the current page* will be selected.
