@@ -1,12 +1,7 @@
 # mindsmash-angular-uxtable
-Yet another data table for AngularJS. **This library is work in progress.**
+Yet another data table for AngularJS. The current implementation features data sorting, pagination, filters and more. The library is designed to easily integrate with a Spring Boot application backend, but can also be used with any other framework. 
 
-### Features
-
-* Sorting
-* Pagination
-* Selection
-* ...
+**Please note:** This library is work in progress.
 
 ### Table of Contents
 
