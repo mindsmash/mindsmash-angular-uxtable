@@ -79,6 +79,8 @@ Yet another data table for AngularJS. **This library is work in progress.**
 
 #### 4.2 Column Visibility
 
+* `getVisibility(key)` - Returns the column's visibility status.
+  * `{String} key`: The column key.
 * `toggleVisibility(key)` - Toggles the column's visibility status. This is short for `setVisibility(key, null)`.
   * `{String} key`: The column key.
 * `setVisibility(key, isVisible)` - Sets the column's visibility status to *isVisible*.
