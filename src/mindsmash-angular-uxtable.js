@@ -334,9 +334,7 @@
                 keyboard: true,
                 selection: true,
                 selectionKey: 'id',
-                rowClick: function(row, idx, api, $event) {
-                    api.toggleActive(idx);
-                }
+                rowAction: angular.noop // function(row, idx, api, $event)...
             },
             pagination: {
                 ngClass: 'ux-table-pagination',
@@ -460,7 +458,7 @@
                 $scope.conf = {};
                 $scope.sortBy = api.setSorting;
                 $scope.rowClick = function(row, idx, $event) {
-                    $scope.conf.view.rowClick(row, idx, api, $event);
+                    api.toggleActive(idx);
                 };
                 
                 var updateConf = function(event, conf) {
@@ -495,7 +493,10 @@
                     callback: function($event) {
                         if ($scope.conf.active !== null) {
                             $event.preventDefault();
-                            console.log("exe");
+                            var idx = $scope.conf.active;
+                            var row = $scope.data[idx];
+                            $scope.conf.view.rowAction(row, idx, api, $event);
+                            $scope.conf.active = null;
                         }
                     }
                 }).add({
