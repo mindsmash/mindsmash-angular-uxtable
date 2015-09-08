@@ -1,11 +1,11 @@
 <div ng-class="conf.facets.ngClass">
-	<ul ng-repeat="column in conf.columns" class="list-group" ng-if="column.filter || column.facets" ng-show="column.show">
-		<li class="list-group-item list-group-input" ng-class="{ active: !!columnFilter }" ng-if="column.filter">
-			<span class="badge pointer pull-right" ng-click="columnFilter = ''; setFilter(column.key, '')">&times;</span>
-			<input type="text" class="form-control input-sm" placeholder="{{ column.name }}" ng-init="columnFilter = getFilter(column.key)" ng-model="columnFilter" ng-model-options="{ updateOn: 'default blur', debounce: {'default': 500, 'blur': 0} }" ng-change="setFilter(column.key, columnFilter)">
-		</li>
-		<li ng-repeat="term in conf.facets.options[column.key].terms.slice(0, conf.facets.maxFacetCount)" ng-if="column.facets && term.count >= conf.facets.minFacetSize" class="list-group-item pointer" ng-class="{ active: term.active }" ng-click="toggleFacet(column.key, term.term)">
-			<span class="badge pull-right">{{ term.count }}</span>{{ term.term }} 
-		</li>
-	</ul>
+    <ul ng-repeat="column in conf.columns" class="list-group" ng-if="column.filter || column.facets" ng-show="column.show">
+        <li class="list-group-item list-group-input" ng-class="{ active: !!columnFilter }" ng-if="column.filter">
+            <span class="badge pointer pull-right" ng-click="columnFilter = ''; setFilter(column.key, '')">&times;</span>
+            <input type="text" class="form-control input-sm" placeholder="{{ column.name }}" ng-init="columnFilter = getFilter(column.key)" ng-model="columnFilter" ng-model-options="{ updateOn: 'default blur', debounce: {'default': 500, 'blur': 0} }" ng-change="setFilter(column.key, columnFilter)">
+        </li>
+        <li ng-repeat="term in conf.facets.options[column.key].terms.slice(0, conf.facets.maxFacetCount)" ng-if="column.facets && term.count >= conf.facets.minFacetSize" class="list-group-item pointer" ng-class="{ active: term.active }" ng-click="toggleFacet(column.key, term.term)">
+            <span class="badge pull-right">{{ term.count }}</span>{{ term.term }} 
+        </li>
+    </ul>
 </div>
