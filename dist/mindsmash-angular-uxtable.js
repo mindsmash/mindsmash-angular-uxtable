@@ -374,8 +374,8 @@
             },
             facets: {
                 ngClass: 'ux-table-facets',
-                maxFacetCount: 10,
-                minFacetSize: 2,
+                maxFacetCount: 5,
+                minFacetSize: 3,
                 options: {}
             },
             requestConverter: function(config, api) {
