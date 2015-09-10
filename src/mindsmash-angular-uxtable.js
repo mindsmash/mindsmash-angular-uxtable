@@ -51,14 +51,16 @@
         
         // normalize columns
         for (var i = 0; i < config.columns.length; i++) {
+            var column = config.columns[i];
             config.columns[i] = angular.extend({
                 name: '',
                 show: true, // is the column visible?
                 sticky: false, // can the visibility status be toggled?
-                sort: true, // is the column sortable?
+                sort: true, // is the column sortable? may be a sort key
                 filter: true, // is the column filterable?
                 facets: false // are facets enabled?
-            }, config.columns[i]);
+            }, column);
+            config.columns[i].sortKey = angular.isString(column.sort) ? column.sort : column.key;
         }
         
         // ===== Table Data & Reloading
@@ -296,8 +298,8 @@
         self.setSorting = function(key, asc) {
             for (var i = 0; i < config.columns.length; i++) {
                 var column = config.columns[i];
-                if (column.key === key) {
-                    if (column.sort) {
+                if (column.sortKey === key) {
+                    if (column.sort !== false) {
                         if (!config.orderBy || config.orderBy.key !== key) {
                             config.orderBy = {
                                 key: key,
