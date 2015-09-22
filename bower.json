@@ -18,10 +18,11 @@
     "url": "git@github.com:mindsmash/mindsmash-angular-uxtable.git"
   },
   "dependencies": {
-    "angular-bootstrap": "0.13.0",
-    "angularjs-dropdown-multiselect": "dotansimha/angularjs-dropdown-multiselect#8f751d841829597e40a93839d6db30305e92cc49",
-    "checklist-model": "~0.2.4",
-    "mindsmash-angular-hotkeys": "~1.0.4"
+    "angular-bootstrap": "~0.13.0",
+    "angular-translate": "~2.8.0",
+    "angularjs-dropdown-multiselect": "mindsmash/angularjs-dropdown-multiselect#b86006bed471db66dd19e46a6e4129f2c3a3bd19",
+    "checklist-model": "~0.6.0",
+    "mindsmash-angular-hotkeys": "~1.0.0"
   },
   "ignore": [
     "**/.*",

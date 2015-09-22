@@ -49,6 +49,13 @@
             filters: {}
         }, tableConfig), loadConfig());
         
+        // build i18n key
+        var i18n = function(name) {
+            if(!name || name.indexOf(tableConfig.i18n.prefix) === 0) { return name; }
+            var trim = name.replace(/ /g, '');
+            return tableConfig.i18n.prefix + trim.toLowerCase();
+        };
+        
         // normalize columns
         for (var i = 0; i < config.columns.length; i++) {
             var column = config.columns[i];
@@ -60,6 +67,7 @@
                 filter: true, // is the column filterable?
                 facets: false // are facets enabled?
             }, column);
+            config.columns[i].name = i18n(config.columns[i].name);
             config.columns[i].sortKey = angular.isString(column.sort) ? column.sort : column.key;
         }
         
@@ -324,13 +332,16 @@
         this.load();
     }
     
-    angular.module('mindsmash.uxTable', ['mindsmash.hotkeys'])
+    angular.module('mindsmash.uxTable', ['mindsmash.hotkeys', 'pascalprecht.translate'])
     
     .provider('UxTableFactory', function UxTableFactoryProvider() {
         var defaultConfig = {
             page: 0,
             pageSize: 10,
             orderBy: null,
+            i18n: {
+                prefix: 'uxTable.'
+            },
             view: { //TODO: cleanup
                 ngClass: 'ux-table-view table',
                 keyboard: true,
@@ -366,11 +377,11 @@
             },
             counter: {
                 ngClass: 'ux-table-counter',
-                template: '<span>{{ conf.page * conf.pageSize + 1 }} &ndash; {{ conf.page * conf.pageSize + conf.count }} of {{ conf.countTotal }}</span>'
+                template: '<span translate="uxTable.tableCounter" translate-values="{ start: conf.page * conf.pageSize + 1, end: conf.page * conf.pageSize + conf.count, total: conf.countTotal }"></span>'
             },
             selectionCounter: {
                 ngClass: 'ux-table-selection-counter',
-                template: '<span>{{ conf.selection.length }} selected<span ng-show="conf.selection.length"> (<a href="#" ng-click="clear()">clear</a>)</span></span>'
+                template: '<span><span translate="uxTable.selectionCounter" translate-values="{ count: conf.selection.length }"></span><span ng-show="conf.selection.length"> (<a href="#" ng-click="clear()">clear</a>)</span></span>'
             },
             facets: {
                 ngClass: 'ux-table-facets',
