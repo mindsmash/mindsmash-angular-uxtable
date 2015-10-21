@@ -1,6 +1,6 @@
 {
   "name": "mindsmash-angular-uxtable",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "authors": [
     "mindsmash GmbH"
   ],
@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "angular-bootstrap": "~0.13.0",
-    "angular-translate": "~2.8.0",
+    "angular-translate": "~2.7.2",
     "angularjs-dropdown-multiselect": "mindsmash/angularjs-dropdown-multiselect#b86006bed471db66dd19e46a6e4129f2c3a3bd19",
     "checklist-model": "~0.6.0",
     "mindsmash-angular-hotkeys": "~1.0.0"

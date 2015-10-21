@@ -1,6 +1,6 @@
 {
   "name": "mindsmash-angular-uxtable",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": "mindsmash GmbH",
   "description": "A data table for AngularJS.",
   "main": "dist/mindsmash-angular-uxtable.min.js",
