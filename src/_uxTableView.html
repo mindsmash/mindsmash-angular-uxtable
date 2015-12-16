@@ -1,22 +1,25 @@
-<table ng-class="conf.view.ngClass">
-    <thead>
-        <tr>
-            <th ng-if="conf.view.selection" class="ux-table-selection"><input type="checkbox" ux-table-selection data="data" selection="conf.selection" selection-key="conf.view.selectionKey"></th>
-            <th
-                ng-repeat="column in conf.columns | filter : { show: true }"
-                ng-click="sortBy(column.sortKey)"
-                ng-class="{ 'sort': column.sort !== false, 'sort-asc': conf.orderBy.key === column.sortKey && conf.orderBy.asc === true, 'sort-desc': conf.orderBy.key === column.sortKey && conf.orderBy.asc === false }"
-                translate="{{ column.name }}">
-            </th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr ng-if="!data.length">
-            <td colspan="{{ 1 + (conf.columns | filter : { show: true }).length }}" class="ux-table-empty" translate="uxTable.empty"></td>
-        <tr/>
-        <tr ng-repeat="row in data" ng-click="rowClick(row, $index, $event)" ng-class="{ active: conf.active === $index }">
-            <td ng-if="conf.view.selection" class="ux-table-selection"><input type="checkbox" checklist-model="conf.selection" checklist-value="row[conf.view.selectionKey]" class="ux-table-selection-input"></td>
-            <td ng-repeat="column in conf.columns | filter : { show: true }" ux-table-cell>{{ row[column.key] }}</td>
-        </tr>
-    </tbody>
-</table>
+<div>
+    <table ng-class="conf.view.ngClass" ng-if="!mobile">
+        <thead>
+            <tr>
+                <th ng-if="conf.view.selection" class="ux-table-selection"><input type="checkbox" ux-table-selection data="data" selection="conf.selection" selection-key="conf.view.selectionKey"></th>
+                <th
+                    ng-repeat="column in conf.columns | filter : { show: true }"
+                    ng-click="sortBy(column.sortKey)"
+                    ng-class="{ 'sort': column.sort !== false, 'sort-asc': conf.orderBy.key === column.sortKey && conf.orderBy.asc === true, 'sort-desc': conf.orderBy.key === column.sortKey && conf.orderBy.asc === false }"
+                    translate="{{ column.name }}">
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr ng-if="!data.length">
+                <td colspan="{{ 1 + (conf.columns | filter : { show: true }).length }}" class="ux-table-empty" translate="uxTable.empty"></td>
+            </tr>
+            <tr ng-repeat="row in data" ng-click="rowClick(row, $index, $event)" ng-class="{ active: conf.active === $index }">
+                <td ng-if="conf.view.selection" class="ux-table-selection"><input type="checkbox" checklist-model="conf.selection" checklist-value="row[conf.view.selectionKey]" class="ux-table-selection-input"></td>
+                <td ng-repeat="column in conf.columns | filter : { show: true }" ux-table-cell>{{ row[column.key] }}</td>
+            </tr>
+        </tbody>
+    </table>
+    <div ng-if="mobile" ng-include="conf.view.mobileViewTemplate"></div>
+</div>

@@ -347,7 +347,9 @@
                 keyboard: true,
                 selection: true,
                 selectionKey: 'id',
-                rowAction: angular.noop // function(row, idx, api, $event)...
+                rowAction: angular.noop, // function(row, idx, api, $event)...
+                mobileViewSize: undefined, // media size to display mobile view (xs,sm,...), multiple values as comma-separated list
+                mobileViewTemplate: undefined // replacement template for mobile view (instead of table)
             },
             pagination: {
                 ngClass: 'ux-table-pagination',
@@ -454,7 +456,7 @@
         };
     })
     
-    .directive('uxTableView', function($rootScope, hotkeys, ElementClickListener) {
+    .directive('uxTableView', function($rootScope, hotkeys, ElementClickListener, screenSize) {
         return {
             replace: true,
             restrict: 'AE',
@@ -464,6 +466,16 @@
             },
             controller: function($scope) {
                 this.api = $scope.api();
+
+                (function(viewConf) {
+                    console.log(viewConf);
+                    if (!!viewConf.mobileViewTemplate && !!viewConf.mobileViewSize) {
+                        $scope.mobile = screenSize.is(viewConf.mobileViewSize);
+                        screenSize.on(viewConf.mobileViewSize, function (mobile) {
+                            $scope.mobile = mobile;
+                        });
+                    }
+                }(this.api.getConfig().view));
             },
             link: function($scope, elem, attrs, ctrl) {
                 var api = ctrl.api;

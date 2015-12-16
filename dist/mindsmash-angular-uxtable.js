@@ -454,7 +454,7 @@
         }];
     })
     
-    .directive('uxTableView', ['$rootScope', 'hotkeys', 'ElementClickListener', function($rootScope, hotkeys, ElementClickListener) {
+    .directive('uxTableView', ['$rootScope', 'hotkeys', 'ElementClickListener', 'screenSize', function($rootScope, hotkeys, ElementClickListener, screenSize) {
         return {
             replace: true,
             restrict: 'AE',
@@ -464,6 +464,16 @@
             },
             controller: ['$scope', function($scope) {
                 this.api = $scope.api();
+
+                (function(viewConf) {
+                    console.log(viewConf);
+                    if (!!viewConf.mobileViewTemplate && !!viewConf.mobileViewSize) {
+                        $scope.mobile = screenSize.is(viewConf.mobileViewSize);
+                        screenSize.on(viewConf.mobileViewSize, function (mobile) {
+                            $scope.mobile = mobile;
+                        });
+                    }
+                }(this.api.getConfig().view));
             }],
             link: function($scope, elem, attrs, ctrl) {
                 var api = ctrl.api;

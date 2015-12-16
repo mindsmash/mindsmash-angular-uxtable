@@ -22,7 +22,8 @@
     "angular-translate": "~2.7.2",
     "angularjs-dropdown-multiselect": "mindsmash/angularjs-dropdown-multiselect#b86006bed471db66dd19e46a6e4129f2c3a3bd19",
     "checklist-model": "~0.6.0",
-    "mindsmash-angular-hotkeys": "~1.0.0"
+    "mindsmash-angular-hotkeys": "~1.0.0",
+    "angular-media-queries": "~0.4.1"
   },
   "ignore": [
     "**/.*",
