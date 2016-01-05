@@ -78,16 +78,14 @@
         self.load = function() {
             var params = config.requestConverter(config, self);
             config.source(params).then(function(response) {
-                $timeout(function() {
-                    var converted = config.responseConverter(response, self);
-                    var facets = converted.meta.facets;
-                    delete converted.meta.facets;
-                    angular.extend(config, converted.meta);
-                    self.setFacets(facets);
-                    data = converted.data;
-                    $rootScope.$emit('uxTable.dataChanged', data);
-                    $rootScope.$emit('uxTable.configChanged', config);
-                });
+                var converted = config.responseConverter(response, self);
+                var facets = converted.meta.facets;
+                delete converted.meta.facets;
+                angular.extend(config, converted.meta);
+                self.setFacets(facets);
+                data = converted.data;
+                $rootScope.$emit('uxTable.dataChanged', data);
+                $rootScope.$emit('uxTable.configChanged', config);
             });
         };
         
