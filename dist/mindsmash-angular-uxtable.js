@@ -347,7 +347,10 @@
                 keyboard: true,
                 selection: true,
                 selectionKey: 'id',
-                rowAction: angular.noop // function(row, idx, api, $event)...
+                rowAction: angular.noop, // function(row, idx, api, $event)...
+                mobileViewSize: undefined, // media size to display mobile view (xs,sm,...), multiple values as comma-separated list
+                mobileViewTemplate: undefined, // replacement template for mobile view (instead of table),
+                scope: {} // additions/overrides to the scope backing the table (additional action methods etc.)
             },
             pagination: {
                 ngClass: 'ux-table-pagination',
@@ -464,16 +467,6 @@
             },
             controller: ['$scope', function($scope) {
                 this.api = $scope.api();
-
-                (function(viewConf) {
-                    console.log(viewConf);
-                    if (!!viewConf.mobileViewTemplate && !!viewConf.mobileViewSize) {
-                        $scope.mobile = screenSize.is(viewConf.mobileViewSize);
-                        screenSize.on(viewConf.mobileViewSize, function (mobile) {
-                            $scope.mobile = mobile;
-                        });
-                    }
-                }(this.api.getConfig().view));
             }],
             link: function($scope, elem, attrs, ctrl) {
                 var api = ctrl.api;
@@ -555,6 +548,16 @@
                 // initialize
                 updateConf(null, api.getConfig());
                 updateData(null, api.getData());
+
+                var viewConf = $scope.conf.view;
+                if (!!viewConf.mobileViewTemplate && !!viewConf.mobileViewSize) {
+                    $scope.mobile = screenSize.is(viewConf.mobileViewSize);
+                    screenSize.on(viewConf.mobileViewSize, function (mobile) {
+                        $scope.mobile = mobile;
+                    });
+                }
+
+                angular.extend($scope, api.getConfig().view.scope);
             }
         };
     }])
