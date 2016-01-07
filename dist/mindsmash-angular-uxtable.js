@@ -908,7 +908,7 @@
     
     // ===== INTERNAL
     
-    .directive('uxTableCell', ['$compile', function($compile) {
+    .directive('uxTableCell', ['$compile', '$templateRequest', function($compile, $templateRequest) {
         return {
             scope: false,
             require: '^uxTableView',
@@ -916,6 +916,12 @@
                 var template = $scope.column.template;
                 if (angular.isString(template)) {
                     elem.html($compile(template)($scope));
+                } else {
+                    if ($scope.column.templateUrl) {
+                        $templateRequest($scope.column.templateUrl).then(function(result) {
+                            elem.html($compile(result)($scope));
+                        });
+                    }
                 }
             }
         };
