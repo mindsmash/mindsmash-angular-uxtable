@@ -78,16 +78,14 @@
         self.load = function() {
             var params = config.requestConverter(config, self);
             config.source(params).then(function(response) {
-                $timeout(function() {
-                    var converted = config.responseConverter(response, self);
-                    var facets = converted.meta.facets;
-                    delete converted.meta.facets;
-                    angular.extend(config, converted.meta);
-                    self.setFacets(facets);
-                    data = converted.data;
-                    $rootScope.$emit('uxTable.dataChanged', data);
-                    $rootScope.$emit('uxTable.configChanged', config);
-                });
+                var converted = config.responseConverter(response, self);
+                var facets = converted.meta.facets;
+                delete converted.meta.facets;
+                angular.extend(config, converted.meta);
+                self.setFacets(facets);
+                data = converted.data;
+                $rootScope.$emit('uxTable.dataChanged', data);
+                $rootScope.$emit('uxTable.configChanged', config);
             });
         };
         
@@ -347,7 +345,10 @@
                 keyboard: true,
                 selection: true,
                 selectionKey: 'id',
-                rowAction: angular.noop // function(row, idx, api, $event)...
+                rowAction: angular.noop, // function(row, idx, api, $event)...
+                mobileViewSize: undefined, // media size to display mobile view (xs,sm,...), multiple values as comma-separated list
+                mobileViewTemplate: undefined, // replacement template for mobile view (instead of table),
+                scope: {} // additions/overrides to the scope backing the table (additional action methods etc.)
             },
             pagination: {
                 ngClass: 'ux-table-pagination',
@@ -454,7 +455,7 @@
         };
     })
     
-    .directive('uxTableView', function($rootScope, hotkeys, ElementClickListener) {
+    .directive('uxTableView', function($rootScope, hotkeys, ElementClickListener, screenSize) {
         return {
             replace: true,
             restrict: 'AE',
@@ -545,6 +546,16 @@
                 // initialize
                 updateConf(null, api.getConfig());
                 updateData(null, api.getData());
+
+                var viewConf = $scope.conf.view;
+                if (!!viewConf.mobileViewTemplate && !!viewConf.mobileViewSize) {
+                    $scope.mobile = screenSize.is(viewConf.mobileViewSize);
+                    screenSize.on(viewConf.mobileViewSize, function (mobile) {
+                        $scope.mobile = mobile;
+                    });
+                }
+
+                angular.extend($scope, api.getConfig().view.scope);
             }
         };
     })
@@ -897,7 +908,7 @@
     
     // ===== INTERNAL
     
-    .directive('uxTableCell', function($compile) {
+    .directive('uxTableCell', function($compile, $templateRequest) {
         return {
             scope: false,
             require: '^uxTableView',
@@ -905,6 +916,12 @@
                 var template = $scope.column.template;
                 if (angular.isString(template)) {
                     elem.html($compile(template)($scope));
+                } else {
+                    if ($scope.column.templateUrl) {
+                        $templateRequest($scope.column.templateUrl).then(function(result) {
+                            elem.html($compile(result)($scope));
+                        });
+                    }
                 }
             }
         };
